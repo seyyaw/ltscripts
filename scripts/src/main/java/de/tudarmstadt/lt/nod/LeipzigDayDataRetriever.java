@@ -1,9 +1,9 @@
 package de.tudarmstadt.lt.nod;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,8 +11,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLConnection;
-import java.text.SimpleDateFormat;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -20,27 +18,35 @@ import java.util.Set;
 import java.util.StringTokenizer;
 
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.compress.compressors.CompressorInputStream;
-import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
-import org.joda.time.DateTime;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 public class LeipzigDayDataRetriever {
-	private static final String EXTRACTEDFOLDER = "/extracted";
+	private static final String EXTRACTED_FOLDER = "/extracted";
 	private static final String ENCODING = "UTF-8";
+	private static final String DEFAULT_URL = "http://asvdoku.informatik.uni-leipzig.de/wdt/";
 	private static final Logger LOG = Logger
 			.getLogger(LeipzigDayDataRetriever.class.getName());
 
 	public static void main(String[] args) throws IOException,
 			CompressorException {
-		String leipizigDayDataUrl = "http://asvdoku.informatik.uni-leipzig.de/wdt/";
+		String leipizigDayDataUrl;
+		if (args.length == 0) {
+			LOG.info("USAGE 'java -jar scripts.jar url dir' WHERE url is the base url to get the "
+					+ "Leipzig day corpora and dir is the directory where you like to store the "
+					+ "processed data");
+			leipizigDayDataUrl = DEFAULT_URL;
+		}
+		else{
+		 leipizigDayDataUrl = args[0];
+		}
+		
 		Document doc = Jsoup.connect(leipizigDayDataUrl).get();
 		Set<String> fileNames = new HashSet<String>();
 		for (Element fileName : doc.select("td a")) {
@@ -48,7 +54,7 @@ public class LeipzigDayDataRetriever {
 				fileNames.add(fileName.attr("href"));
 			}
 		}
-		String path = "/home/seidm/LT/NOD/ldt/";
+		String path = "./";
 		for (String fileName : fileNames) {
 			File file = new File(path + fileName);
 			if (!file.exists()) {
@@ -100,12 +106,18 @@ public class LeipzigDayDataRetriever {
 		BZip2CompressorInputStream input = new BZip2CompressorInputStream(
 				new FileInputStream(aFile));
 		BufferedReader br = new BufferedReader(new InputStreamReader(input));
-		File extractedFolder = new File(aFile.getParent() + EXTRACTEDFOLDER);
+		File extractedFolder = new File(aFile.getParent() + EXTRACTED_FOLDER);
 		if (!extractedFolder.exists())
 			FileUtils.forceMkdir(extractedFolder);
 		String fileName = FilenameUtils.getBaseName(aFile.getName());
 		File extractedFile = new File(extractedFolder, fileName);
 
+		processAndWriteTsvFiles(br, fileName, extractedFile);
+	}
+
+	private static void processAndWriteTsvFiles(BufferedReader br,
+			String fileName, File extractedFile) throws IOException,
+			FileNotFoundException {
 		String line = null;
 		StringBuilder sentences = new StringBuilder();
 		Integer sentenceId = 1;
@@ -124,9 +136,10 @@ public class LeipzigDayDataRetriever {
 			sentenceId++;
 		}
 		int size = (int) Math.ceil((double) sentenceSources.size() / 1000000.0);
-		String corpusName = extractedFile.getParent()+"/dail_news_" +extractedFile.getName();
-		OutputStream sentenceOs = new FileOutputStream(corpusName + "_"
-				+ size + "M-sentences.txt");
+		String corpusName = extractedFile.getParent() + "/dail_news_"
+				+ extractedFile.getName();
+		OutputStream sentenceOs = new FileOutputStream(corpusName + "_" + size
+				+ "M-sentences.txt");
 		OutputStream sourceOs = new FileOutputStream(corpusName + "_" + size
 				+ "M-sources.txt");
 		OutputStream invSoOs = new FileOutputStream(corpusName + "_" + size
