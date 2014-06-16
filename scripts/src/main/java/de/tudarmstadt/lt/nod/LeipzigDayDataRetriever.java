@@ -54,7 +54,7 @@ public class LeipzigDayDataRetriever {
 				fileNames.add(fileName.attr("href"));
 			}
 		}
-		String path = "./";
+		String path = "./LeipzigDailyData/";
 		for (String fileName : fileNames) {
 			File file = new File(path + fileName);
 			if (!file.exists()) {
