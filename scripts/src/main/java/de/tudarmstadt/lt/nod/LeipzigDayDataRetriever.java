@@ -56,6 +56,9 @@ public class LeipzigDayDataRetriever {
 		}
 		String path = "./LeipzigDailyData/";
 		for (String fileName : fileNames) {
+			if(!new File(path).exists()){
+				FileUtils.forceMkdir(new File(path));
+			}
 			File file = new File(path + fileName);
 			if (!file.exists()) {
 
