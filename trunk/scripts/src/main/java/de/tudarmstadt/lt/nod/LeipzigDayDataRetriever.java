@@ -42,11 +42,10 @@ public class LeipzigDayDataRetriever {
 					+ "Leipzig day corpora and dir is the directory where you like to store the "
 					+ "processed data");
 			leipizigDayDataUrl = DEFAULT_URL;
+		} else {
+			leipizigDayDataUrl = args[0];
 		}
-		else{
-		 leipizigDayDataUrl = args[0];
-		}
-		
+
 		Document doc = Jsoup.connect(leipizigDayDataUrl).get();
 		Set<String> fileNames = new HashSet<String>();
 		for (Element fileName : doc.select("td a")) {
@@ -56,7 +55,7 @@ public class LeipzigDayDataRetriever {
 		}
 		String path = "./LeipzigDailyData/";
 		for (String fileName : fileNames) {
-			if(!new File(path).exists()){
+			if (!new File(path).exists()) {
 				FileUtils.forceMkdir(new File(path));
 			}
 			File file = new File(path + fileName);
@@ -124,13 +123,16 @@ public class LeipzigDayDataRetriever {
 		String line = null;
 		StringBuilder sentences = new StringBuilder();
 		Integer sentenceId = 1;
+		String reformattedDate = fileName.replaceFirst(
+				"(\\d{4})(\\d{2})(\\d{2})", "$1-$2-$3");
 		// source,sourceId
 		Map<String, Integer> sources = new LinkedHashMap<String, Integer>();
 		// sourceId,sentenceID
 		Map<Integer, Integer> sentenceSources = new LinkedHashMap<Integer, Integer>();
 		while ((line = br.readLine()) != null) {
 			StringTokenizer lineSt = new StringTokenizer(line, "\t");
-			sentences.append(sentenceId + "\t" + lineSt.nextToken() + "\n");
+			sentences.append(sentenceId + "\t" + lineSt.nextToken() + "\t"
+					+ reformattedDate + "\n");
 			String source = lineSt.nextToken();
 			if (sources.get(source) == null) {
 				sources.put(source, sources.size() + 1);
@@ -151,8 +153,6 @@ public class LeipzigDayDataRetriever {
 		IOUtils.write(sentences.toString(), sentenceOs, ENCODING);
 
 		for (String source : sources.keySet()) {
-			String reformattedDate = fileName.replaceFirst(
-					"(\\d{4})(\\d{2})(\\d{2})", "$1-$2-$3");
 
 			IOUtils.write(sources.get(source) + "\t" + source + "\t"
 					+ reformattedDate + "\n", sourceOs, ENCODING);
