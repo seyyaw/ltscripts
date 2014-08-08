@@ -11,11 +11,17 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.TimeZone;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
@@ -29,22 +35,24 @@ import org.jsoup.nodes.Element;
 
 public class LeipzigDayDataRetriever {
 	private static final String EXTRACTED_FOLDER = "/extracted";
+	public static final String TODAY = "today";
 	private static final String ENCODING = "UTF-8";
 	private static final String DEFAULT_URL = "http://asvdoku.informatik.uni-leipzig.de/wdt/";
 	private static final Logger LOG = Logger
 			.getLogger(LeipzigDayDataRetriever.class.getName());
 
 	public static void main(String[] args) throws IOException,
-			CompressorException {
+			CompressorException, ParseException {
 		String leipizigDayDataUrl;
-		if (args.length == 0) {
-			LOG.info("USAGE 'java -jar scripts.jar url dir' WHERE url is the base url to get the "
-					+ "Leipzig day corpora and dir is the directory where you like to store the "
-					+ "processed data");
-			leipizigDayDataUrl = DEFAULT_URL;
-		} else {
-			leipizigDayDataUrl = args[0];
-		}
+		/*
+		 * if (args.length == 0) { LOG.info(
+		 * "USAGE 'java -jar scripts.jar url dir' WHERE url is the base url to get the "
+		 * +
+		 * "Leipzig day corpora and dir is the directory where you like to store the "
+		 * + "processed data"); leipizigDayDataUrl = DEFAULT_URL; } else {
+		 * leipizigDayDataUrl = args[0]; }
+		 */
+		leipizigDayDataUrl = DEFAULT_URL;
 
 		Document doc = Jsoup.connect(leipizigDayDataUrl).get();
 		Set<String> fileNames = new HashSet<String>();
@@ -104,7 +112,7 @@ public class LeipzigDayDataRetriever {
 	}
 
 	public static void extractZip(File aFile) throws CompressorException,
-			IOException {
+			IOException, ParseException {
 		BZip2CompressorInputStream input = new BZip2CompressorInputStream(
 				new FileInputStream(aFile));
 		BufferedReader br = new BufferedReader(new InputStreamReader(input));
@@ -119,7 +127,7 @@ public class LeipzigDayDataRetriever {
 
 	private static void processAndWriteTsvFiles(BufferedReader br,
 			String fileName, File extractedFile) throws IOException,
-			FileNotFoundException {
+			FileNotFoundException, ParseException {
 		String line = null;
 		StringBuilder sentences = new StringBuilder();
 		Integer sentenceId = 1;
@@ -143,12 +151,14 @@ public class LeipzigDayDataRetriever {
 		int size = (int) Math.ceil((double) sentenceSources.size() / 1000000.0);
 		String corpusName = extractedFile.getParent() + "/dail_news_"
 				+ extractedFile.getName();
-		OutputStream sentenceOs = new FileOutputStream(corpusName + "_" + size
-				+ "M-sentences.txt");
-		OutputStream sourceOs = new FileOutputStream(corpusName + "_" + size
-				+ "M-sources.txt");
-		OutputStream invSoOs = new FileOutputStream(corpusName + "_" + size
-				+ "M-inv_so.txt");
+		String sentenceFileName = corpusName + "_" + size + "M-sentences.txt";
+		OutputStream sentenceOs = new FileOutputStream(sentenceFileName);
+
+		String sourceFileName = corpusName + "_" + size + "M-sources.txt";
+		OutputStream sourceOs = new FileOutputStream(sourceFileName);
+
+		String invSoFileName = corpusName + "_" + size + "M-inv_so.txt";
+		OutputStream invSoOs = new FileOutputStream(invSoFileName);
 
 		IOUtils.write(sentences.toString(), sentenceOs, ENCODING);
 
@@ -161,6 +171,26 @@ public class LeipzigDayDataRetriever {
 		for (int i : sentenceSources.keySet()) {
 			IOUtils.write(sentenceSources.get(i) + "\t" + i + "\n", invSoOs,
 					ENCODING);
+		}
+
+		Date date = new SimpleDateFormat("yyyy-MM-dd").parse(reformattedDate);
+		Calendar now = Calendar.getInstance();
+
+		Calendar cal1 = Calendar.getInstance();
+		cal1.setTime(date);
+		boolean sameDay = cal1.get(Calendar.YEAR) == now.get(Calendar.YEAR)
+				&& cal1.get(Calendar.DAY_OF_YEAR) == now
+						.get(Calendar.DAY_OF_YEAR) - 1;
+
+		// if we need a daily data to be separated from the rest and so that db
+		// will be updated
+		if (sameDay) {
+			File dayFolder = new File(extractedFile.getParent(), TODAY);
+			FileUtils.forceMkdir(dayFolder);
+			FileUtils
+					.copyFileToDirectory(new File(sentenceFileName), dayFolder);
+			FileUtils.copyFileToDirectory(new File(sourceFileName), dayFolder);
+			FileUtils.copyFileToDirectory(new File(invSoFileName), dayFolder);
 		}
 	}
 }
