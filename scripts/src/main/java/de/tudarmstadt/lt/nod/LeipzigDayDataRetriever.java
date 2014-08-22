@@ -169,7 +169,7 @@ public class LeipzigDayDataRetriever {
 		}
 
 		for (int i : sentenceSources.keySet()) {
-			IOUtils.write(sentenceSources.get(i) + "\t" + i + "\n", invSoOs,
+			IOUtils.write(i + "\t" + sentenceSources.get(i) +  "\n", invSoOs,
 					ENCODING);
 		}
 
