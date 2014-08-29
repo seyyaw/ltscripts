@@ -17,11 +17,9 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
-import java.util.TimeZone;
 
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
@@ -82,7 +80,7 @@ public class LeipzigDayDataRetriever {
 	/**
 	 * Downloads a .bz2 File from a given url and save the zip file to a file
 	 * system
-	 * 
+	 *
 	 * @param aUrl
 	 *            The full url path of the file to be download
 	 * @param aPath
@@ -115,10 +113,11 @@ public class LeipzigDayDataRetriever {
 			IOException, ParseException {
 		BZip2CompressorInputStream input = new BZip2CompressorInputStream(
 				new FileInputStream(aFile));
-		BufferedReader br = new BufferedReader(new InputStreamReader(input));
+		BufferedReader br = new BufferedReader(new InputStreamReader(input, ENCODING));
 		File extractedFolder = new File(aFile.getParent() + EXTRACTED_FOLDER);
-		if (!extractedFolder.exists())
-			FileUtils.forceMkdir(extractedFolder);
+		if (!extractedFolder.exists()) {
+            FileUtils.forceMkdir(extractedFolder);
+        }
 		String fileName = FilenameUtils.getBaseName(aFile.getName());
 		File extractedFile = new File(extractedFolder, fileName);
 
