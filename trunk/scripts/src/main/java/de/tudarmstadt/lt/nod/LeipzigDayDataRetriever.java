@@ -35,7 +35,7 @@ public class LeipzigDayDataRetriever {
 	private static final String EXTRACTED_FOLDER = "/extracted";
 	public static final String TODAY = "today";
 	private static final String ENCODING = "UTF-8";
-	private static final String DEFAULT_URL = "http://asvdoku.informatik.uni-leipzig.de/wdt/";
+	private static final String DEFAULT_URL = "";
 	private static final Logger LOG = Logger
 			.getLogger(LeipzigDayDataRetriever.class.getName());
 
