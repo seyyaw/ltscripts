@@ -17,6 +17,18 @@ public class TermFreq
 {
     public static void main(String[] args)
     {
+    	if(args[0].isEmpty()){
+    		System.out.println("USAGE: java -jar truecaser.jar trucasingFile fileToTruecase trueCasedFile.\n"
+    				+ "Please provide the truecasing corpus file.");
+    	}
+     	if(args[1].isEmpty()){
+    		System.out.println("USAGE: java -jar truecaser.jar trucasingFile fileToTruecase trueCasedFile.\n"
+    				+ "Please provide the document to be truecased.");
+    	}
+     	if(args[2].isEmpty()){
+    		System.out.println("USAGE: java -jar truecaser.jar trucasingFile fileToTruecase trueCasedFile.\n"
+    				+ "Please provide the output file name for the truecased file.");
+    	}
         try {
             File fileDir = new File(args[0]);
             BufferedReader in = new BufferedReader(
