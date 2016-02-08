@@ -15,7 +15,9 @@ import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.IndicesAdminClient;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
+import static org.elasticsearch.common.settings.Settings.settingsBuilder;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.*;
 import static org.elasticsearch.node.NodeBuilder.*;
@@ -28,12 +30,18 @@ public class PSQL2ESBulkIndexing {
 	static Logger logger = Logger.getLogger(PSQL2ESBulkIndexing.class.getName());
 
 	public static void main(String[] args) throws Exception {
-		if(args.length == 0){
+		if (args.length == 0) {
 			logger.error("please provide index name");
 			System.exit(1);
 		}
 		initDB();
-		Node node = nodeBuilder().node();
+		PSQL2ESBulkIndexing.class.getResource("/res/path/to/the/file/myFile.xsd").getPath();
+
+		String yaml = "/src/main/resources/elasticsearch.yml";
+		Settings settings = settingsBuilder().loadFromSource(PSQL2ESBulkIndexing.class.getResource(yaml).getPath())
+				.build();
+
+		Node node = nodeBuilder().settings(settings).node();
 		Client client = node.client();
 		// document2Json();
 		documenIndexer(client, args[0]);
