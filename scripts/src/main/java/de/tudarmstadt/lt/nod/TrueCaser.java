@@ -13,21 +13,24 @@ import java.util.Map;
 import org.apache.commons.io.IOUtils;
 
 
-public class TermFreq
+public class TrueCaser
 {
     public static void main(String[] args)
     {
-    	if(args[0].isEmpty()){
+    	if(args.length ==0){
     		System.out.println("USAGE: java -jar truecaser.jar trucasingFile fileToTruecase trueCasedFile.\n"
-    				+ "Please provide the truecasing corpus file.");
+    				+ "Please provide the truecasing corpus file, the file to be truecased, and the output file name for the truecase file.");
+    		System.exit(1);
     	}
-     	if(args[1].isEmpty()){
+     	if(args.length<2){
     		System.out.println("USAGE: java -jar truecaser.jar trucasingFile fileToTruecase trueCasedFile.\n"
     				+ "Please provide the document to be truecased.");
+    		System.exit(1);
     	}
-     	if(args[2].isEmpty()){
+     	if(args.length<3){
     		System.out.println("USAGE: java -jar truecaser.jar trucasingFile fileToTruecase trueCasedFile.\n"
     				+ "Please provide the output file name for the truecased file.");
+    		System.exit(1);
     	}
         try {
             File fileDir = new File(args[0]);
