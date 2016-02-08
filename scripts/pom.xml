@@ -51,6 +51,24 @@
 			<artifactId>joda-time</artifactId>
 			<version>2.3</version>
 		</dependency>
+
+		<dependency>
+			<groupId>postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>9.1-901.jdbc4</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.5</version>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.elasticsearch</groupId>
+			<artifactId>elasticsearch</artifactId>
+			<version>2.1.1</version>
+		</dependency>
+
 	</dependencies>
 	<build>
 		<defaultGoal>install</defaultGoal>
@@ -71,7 +89,7 @@
 					<archive>
 						<manifest>
 							<addClasspath>true</addClasspath>
-							<mainClass>de.tudarmstadt.lt.nod.LeipzigDayDataRetriever</mainClass>
+							<mainClass>de.tudarmstadt.lt.nod.DIVIDRelationToNonRelation</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
@@ -84,7 +102,7 @@
 					</descriptorRefs>
 					<archive>
 						<manifest>
-							<mainClass>de.tudarmstadt.lt.nod.LeipzigDayDataRetriever</mainClass>
+							<mainClass>de.tudarmstadt.lt.nod.DIVIDRelationToNonRelation</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
