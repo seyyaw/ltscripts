@@ -15,7 +15,6 @@ import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.IndicesAdminClient;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.*;
@@ -29,7 +28,10 @@ public class PSQL2ESBulkIndexing {
 	static Logger logger = Logger.getLogger(PSQL2ESBulkIndexing.class.getName());
 
 	public static void main(String[] args) throws Exception {
-
+		if(args.length == 0){
+			logger.error("please provide index name");
+			System.exit(1);
+		}
 		initDB();
 		Node node = nodeBuilder().node();
 		Client client = node.client();
