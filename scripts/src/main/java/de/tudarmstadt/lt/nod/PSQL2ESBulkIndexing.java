@@ -35,9 +35,9 @@ public class PSQL2ESBulkIndexing {
 		JsonWriter writer;
 		Node node = nodeBuilder()
 				.settings(Settings.builder().put("path.home", "/media/seid/DATA/apps/elasticsearch-2.2.0/")).local(true)
-				.clusterName("localhost:9200").node();
+				.node();
 		Client client = node.client();
-		document2Json();
+		// document2Json();
 		documenIndexer(client);
 	}
 
