@@ -9,6 +9,7 @@ import java.sql.Statement;
 
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
 
 import static org.elasticsearch.common.xcontent.XContentFactory.*;
@@ -24,7 +25,7 @@ public class PSQL2ESBulkIndexing {
 		String userName = "seid";
 		String password = "seid";
 		JsonWriter writer;
-		Node node = nodeBuilder().node();
+		Node node = nodeBuilder().settings(Settings.builder().put("path.home","/media/seid/DATA/apps/elasticsearch-2.2.0/")).local(true).clusterName("localhost:9200").node();
 		Client client = node.client();
 		BulkRequestBuilder bulkRequest = client.prepareBulk();
 
