@@ -95,7 +95,7 @@
 					<archive>
 						<manifest>
 							<addClasspath>true</addClasspath>
-							<mainClass>de.tudarmstadt.lt.nod.DIVIDRelationToNonRelation</mainClass>
+							<mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
@@ -108,7 +108,7 @@
 					</descriptorRefs>
 					<archive>
 						<manifest>
-							<mainClass>de.tudarmstadt.lt.nod.DIVIDRelationToNonRelation</mainClass>
+							<mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
