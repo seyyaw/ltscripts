@@ -1,7 +1,6 @@
 package de.tudarmstadt.lt.nod;
 
 import java.io.FileWriter;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
@@ -9,14 +8,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import org.apache.log4j.Logger;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.IndicesAdminClient;
-import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
 
@@ -28,21 +26,15 @@ import com.google.gson.stream.JsonWriter;
 public class PSQL2ESBulkIndexing {
 	private static Connection conn;
 	private static Statement st;
+	static Logger logger = Logger.getLogger(PSQL2ESBulkIndexing.class.getName());
 
-	public static void main(String[] args)
-			throws Exception {
-		String url = "jdbc:postgresql://130.83.164.196/";
-		String dbName = "dividdj";
-		String driver = "org.postgresql.Driver";
-		String userName = "seid";
-		String password = "seid";
-		init(url, dbName, driver, userName, password);
-		Node node = nodeBuilder().clusterName("elasticsearch")
-				.settings(Settings.builder().put("path.home", "/media/seid/DATA/apps/elasticsearch-2.2.0/"))
-				.node();
+	public static void main(String[] args) throws Exception {
+
+		initDB();
+		Node node = nodeBuilder().node();
 		Client client = node.client();
 		// document2Json();
-		documenIndexer(client,"news_leaks");
+		documenIndexer(client, args[0]);
 	}
 
 	private static void document2Json() {
@@ -71,30 +63,47 @@ public class PSQL2ESBulkIndexing {
 	}
 
 	private static void documenIndexer(Client client, String indexName) throws Exception {
-		
+
 		boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet().isExists();
 		if (!exists) {
 			createIndex(indexName, client);
 		}
-		ResultSet docSt = st.executeQuery("select * from document limit 3;");
+		ResultSet docSt = st.executeQuery("select * from document;");
 		BulkRequestBuilder bulkRequest = client.prepareBulk();
+		int bblen = 0;
 		while (docSt.next()) {
 			String content = docSt.getString("content");
 			Date created = docSt.getDate("created");
 			Integer id = docSt.getInt("id");
 			bulkRequest.add(client.prepareIndex(indexName, "document", id.toString()).setSource(
 					jsonBuilder().startObject().field("content", content).field("created", created).endObject()));
+			bblen++;
+			if (bblen % 1000 == 0) {
+				logger.info("##### " + bblen + " documents are indexed.");
+				BulkResponse bulkResponse = bulkRequest.execute().actionGet();
+				if (bulkResponse.hasFailures()) {
+					logger.error("##### Bulk Request failure with error: " + bulkResponse.buildFailureMessage());
+				}
+				bulkRequest = client.prepareBulk();
+			}
 		}
-
-		BulkResponse bulkResponse = bulkRequest.execute().actionGet();
-		if (bulkResponse.hasFailures()) {
-			System.out.println(bulkRequest.get());
+		if (bulkRequest.numberOfActions() > 0) {
+			logger.info("##### " + bblen + " data indexed.");
+			BulkResponse bulkRes = bulkRequest.execute().actionGet();
+			if (bulkRes.hasFailures()) {
+				logger.error("##### Bulk Request failure with error: " + bulkRes.buildFailureMessage());
+			}
 		}
 
 	}
 
-	private static void init(String url, String dbName, String driver, String userName, String password)
+	private static void initDB()
 			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
+		String url = "jdbc:postgresql://130.83.164.196/";
+		String dbName = "dividdj";
+		String driver = "org.postgresql.Driver";
+		String userName = "seid";
+		String password = "seid";
 		Class.forName(driver).newInstance();
 		conn = DriverManager.getConnection(url + dbName, userName, password);
 		st = conn.createStatement();
