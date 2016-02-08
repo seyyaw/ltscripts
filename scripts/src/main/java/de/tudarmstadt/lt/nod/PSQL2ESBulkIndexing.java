@@ -35,10 +35,8 @@ public class PSQL2ESBulkIndexing {
 			System.exit(1);
 		}
 		initDB();
-		PSQL2ESBulkIndexing.class.getResource("/res/path/to/the/file/myFile.xsd").getPath();
-
-		String yaml = "/src/main/resources/elasticsearch.yml";
-		Settings settings = settingsBuilder().loadFromSource(PSQL2ESBulkIndexing.class.getResource(yaml).getPath())
+		String yaml = PSQL2ESBulkIndexing.class.getResource("/elasticsearch.yml").getPath();
+		Settings settings = settingsBuilder().loadFromStream(yaml, PSQL2ESBulkIndexing.class.getResourceAsStream("/elasticsearch.yml"))
 				.build();
 
 		Node node = nodeBuilder().settings(settings).node();
@@ -73,12 +71,18 @@ public class PSQL2ESBulkIndexing {
 	}
 
 	private static void documenIndexer(Client client, String indexName) throws Exception {
-
+		try{
 		boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet().isExists();
 		if (!exists) {
+			System.out.println("CREATING WRONG");
 			createIndex(indexName, client);
 		}
-		ResultSet docSt = st.executeQuery("select * from document;");
+		}
+		catch (Exception e){
+			// starnange error
+			logger.error(e.getMessage());
+		}
+		ResultSet docSt = st.executeQuery("select * from document limit 100;");
 		BulkRequestBuilder bulkRequest = client.prepareBulk();
 		int bblen = 0;
 		while (docSt.next()) {
@@ -88,7 +92,7 @@ public class PSQL2ESBulkIndexing {
 			bulkRequest.add(client.prepareIndex(indexName, "document", id.toString()).setSource(
 					jsonBuilder().startObject().field("content", content).field("created", created).endObject()));
 			bblen++;
-			if (bblen % 1000 == 0) {
+			if (bblen % 10 == 0) {
 				logger.info("##### " + bblen + " documents are indexed.");
 				BulkResponse bulkResponse = bulkRequest.execute().actionGet();
 				if (bulkResponse.hasFailures()) {
