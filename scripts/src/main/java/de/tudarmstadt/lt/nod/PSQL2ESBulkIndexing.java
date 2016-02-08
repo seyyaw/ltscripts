@@ -37,13 +37,12 @@ public class PSQL2ESBulkIndexing {
 		String userName = "seid";
 		String password = "seid";
 		init(url, dbName, driver, userName, password);
-		JsonWriter writer;
-		Node node = nodeBuilder()
-				.settings(Settings.builder().put("path.home", "/media/seid/DATA/apps/elasticsearch-2.2.0/")).local(true)
+		Node node = nodeBuilder().clusterName("elasticsearch")
+				.settings(Settings.builder().put("path.home", "/media/seid/DATA/apps/elasticsearch-2.2.0/"))
 				.node();
 		Client client = node.client();
 		// document2Json();
-		documenIndexer(client);
+		documenIndexer(client,"news_leaks");
 	}
 
 	private static void document2Json() {
@@ -71,15 +70,11 @@ public class PSQL2ESBulkIndexing {
 		}
 	}
 
-	private static void documenIndexer(Client client) throws Exception {
-		CreateIndexResponse createResponse = client.admin().indices().create(Requests.createIndexRequest("news_leaks"))
-				.actionGet();
-		if (!createResponse.isAcknowledged()) {
-			createIndex("news_leaks", client);
-		}
-		boolean exists = client.admin().indices().prepareExists("news_leaks").execute().actionGet().isExists();
+	private static void documenIndexer(Client client, String indexName) throws Exception {
+		
+		boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet().isExists();
 		if (!exists) {
-			createIndex("news_leaks", client);
+			createIndex(indexName, client);
 		}
 		ResultSet docSt = st.executeQuery("select * from document limit 3;");
 		BulkRequestBuilder bulkRequest = client.prepareBulk();
@@ -87,7 +82,7 @@ public class PSQL2ESBulkIndexing {
 			String content = docSt.getString("content");
 			Date created = docSt.getDate("created");
 			Integer id = docSt.getInt("id");
-			bulkRequest.add(client.prepareIndex("news_leaks", "document", id.toString()).setSource(
+			bulkRequest.add(client.prepareIndex(indexName, "document", id.toString()).setSource(
 					jsonBuilder().startObject().field("content", content).field("created", created).endObject()));
 		}
 
