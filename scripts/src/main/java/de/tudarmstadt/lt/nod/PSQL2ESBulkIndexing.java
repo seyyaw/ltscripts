@@ -98,7 +98,8 @@ public class PSQL2ESBulkIndexing {
             String content = docSt.getString("content");
             Date created = docSt.getDate("created");
             Integer id = docSt.getInt("id");
-            ResultSet metadataSt = st.executeQuery("select * from metadata where docid =" + id + ";");
+            
+            ResultSet metadataSt = conn.createStatement().executeQuery("select * from metadata where docid =" + id + ";");
 
             JSONArray metadataArrys = new JSONArray();
             while (metadataSt.next()) {
@@ -114,7 +115,7 @@ public class PSQL2ESBulkIndexing {
                 metadataArrys.put(metadata);
 
             }
-
+            metadataSt.close();
             bulkRequest.add(client.prepareIndex(indexName, "document", id.toString()).setSource(
                     jsonBuilder().startObject().field("content", content).field("created", created).field("metadata",metadataArrys).endObject()));
             bblen++;
@@ -127,6 +128,7 @@ public class PSQL2ESBulkIndexing {
                 bulkRequest = client.prepareBulk();
             }
         }
+        docSt.close();
         if (bulkRequest.numberOfActions() > 0) {
             logger.info("##### " + bblen + " data indexed.");
             BulkResponse bulkRes = bulkRequest.execute().actionGet();
