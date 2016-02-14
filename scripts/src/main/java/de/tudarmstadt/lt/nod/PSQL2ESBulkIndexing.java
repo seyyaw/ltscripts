@@ -90,9 +90,12 @@ public class PSQL2ESBulkIndexing {
 		try {
 			boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet().isExists();
 			if (!exists) {
-				System.out.println("Index will be created.");
+				System.out.println("Index "+indexName+" will be created.");
 				// createIndex(indexName, client);
-				createIndex2(client, indexName, documentType);
+				//createIndex2(client, indexName, documentType);
+				createEnronIndex(client, indexName, documentType);
+				
+				System.out.println("Index "+indexName+" is created.");
 			}
 		} catch (Exception e) {
 			// starnange error
@@ -114,7 +117,7 @@ public class PSQL2ESBulkIndexing {
 			xb.field("content", content).field("created", created);
 			Map<String, List<String>> metas = new HashMap<>();
 			while (metadataSt.next()) {
-				String key = metadataSt.getString("key");
+				String key = metadataSt.getString("key").replace(".", "_");
 				String value = metadataSt.getString("value");
 				// Object type = metadataSt.getObject("type");
 				// xb.field(key, value)/* .field("value",
@@ -133,7 +136,7 @@ public class PSQL2ESBulkIndexing {
 			metadataSt.close();
 			bulkRequest.add(client.prepareIndex(indexName, documentType, id.toString()).setSource(xb));
 			bblen++;
-			if (bblen % 100 == 0) {
+			if (bblen % 1000 == 0) {
 				logger.info("##### " + bblen + " documents are indexed.");
 				BulkResponse bulkResponse = bulkRequest.execute().actionGet();
 				if (bulkResponse.hasFailures()) {
@@ -156,7 +159,7 @@ public class PSQL2ESBulkIndexing {
 	private static void initDB()
 			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
 		String url = "jdbc:postgresql://130.83.164.196/";
-		String dbName = "dividdj";
+		String dbName = "enron";
 		String driver = "org.postgresql.Driver";
 		String userName = "seid";
 		String password = "seid";
@@ -202,5 +205,43 @@ public class PSQL2ESBulkIndexing {
 		createIndexRequestBuilder.addMapping(documentType, mappingBuilder);
 
 		createIndexRequestBuilder.execute().actionGet();
+	}
+	
+	public static void createEnronIndex(Client client, String indexName, String documentType) throws Exception {
+
+		IndicesExistsResponse res = client.admin().indices().prepareExists(indexName).execute().actionGet();
+		if (res.isExists()) {
+			DeleteIndexRequestBuilder delIdx = client.admin().indices().prepareDelete(indexName);
+			delIdx.execute().actionGet();
+		}
+
+		CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices().prepareCreate(indexName);
+
+		XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject().startObject(documentType)
+				.startObject("properties").startObject("content").field("type", "string").field("analyzer", "english")
+				.endObject().startObject("Subject").field("type", "string").field("analyzer", "english").endObject()
+				
+				.startObject("Timezone").field("type", "string").field("index", "not_analyzed").endObject()
+				
+				.startObject("Recipients_name").field("type", "string").field("store", "yes").field("index", "not_analyzed").endObject()
+				.startObject("Recipients_email").field("type", "string").field("store", "yes").field("index", "not_analyzed").endObject()
+				.startObject("Recipients_order").field("type", "short").field("store", "yes").field("index", "not_analyzed").endObject()
+				.startObject("Recipients_type").field("type", "string").field("store", "yes").field("index", "not_analyzed").endObject()
+				.startObject("Recipients_id").field("type", "long").field("store", "yes").field("index", "not_analyzed").endObject()
+				
+				.startObject("sender_id").field("type", "long").field("index", "not_analyzed").endObject()
+				.startObject("sender_email").field("type", "string").field("index", "not_analyzed").endObject()
+				.startObject("sender_name").field("type", "string").field("index", "not_analyzed").endObject()
+				.endObject().endObject();
+		createIndexRequestBuilder.addMapping(documentType, mappingBuilder);
+
+		try{
+		CreateIndexResponse response = createIndexRequestBuilder.execute().actionGet();
+		if (!response.isAcknowledged()) {
+			throw new Exception("Failed to delete index " + indexName);
+		}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
 	}
 }
