@@ -43,22 +43,30 @@ public class PSQL2ESBulkIndexing {
 	static Logger logger = Logger.getLogger(PSQL2ESBulkIndexing.class.getName());
 
 	public static void main(String[] args) throws Exception {
+		String usage = "Run as: java -jar dbname indexname elasticsearch.yml";
 		if (args.length == 0) {
-			logger.error("please provide index name");
+			logger.error("please provide dbname name");
+			logger.error(usage);
 			System.exit(1);
 		}
 		if (args.length == 1) {
-			logger.error("please provide elasticsearch.yml file ");
+			logger.error("please provide index name ");
+			logger.error(usage);
 			System.exit(1);
 		}
-		initDB();
-		Path path = new File(args[1]).toPath();
+		if (args.length == 2) {
+			logger.error("please provide elasticsearch.yml file ");
+			logger.error(usage);
+			System.exit(1);
+		}
+		initDB(args[0]);
+		Path path = new File(args[2]).toPath();
 		Settings settings = settingsBuilder().loadFromPath(path).build();
 
 		Node node = nodeBuilder().settings(settings).node();
 		Client client = node.client();
 		// document2Json();
-		documenIndexer(client, args[0], "document");
+		documenIndexer(client, args[1], "document");
 	}
 
 	private static void document2Json() {
@@ -90,12 +98,12 @@ public class PSQL2ESBulkIndexing {
 		try {
 			boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet().isExists();
 			if (!exists) {
-				System.out.println("Index "+indexName+" will be created.");
+				System.out.println("Index " + indexName + " will be created.");
 				// createIndex(indexName, client);
-				//createIndex2(client, indexName, documentType);
-				createEnronIndex(client, indexName, documentType);
-				
-				System.out.println("Index "+indexName+" is created.");
+				//createcableIndex(client, indexName, documentType);
+				 createEnronIndex(client, indexName, documentType);
+
+				System.out.println("Index " + indexName + " is created.");
 			}
 		} catch (Exception e) {
 			// starnange error
@@ -156,10 +164,10 @@ public class PSQL2ESBulkIndexing {
 
 	}
 
-	private static void initDB()
+	private static void initDB(String aDbName)
 			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
 		String url = "jdbc:postgresql://130.83.164.196/";
-		String dbName = "enron";
+		String dbName =aDbName;
 		String driver = "org.postgresql.Driver";
 		String userName = "seid";
 		String password = "seid";
@@ -181,7 +189,7 @@ public class PSQL2ESBulkIndexing {
 	// Based on this so:
 	// http://stackoverflow.com/questions/22071198/adding-mapping-to-a-type-from-java-how-do-i-do-it
 
-	public static void createIndex2(Client client, String indexName, String documentType) throws IOException {
+	public static void createcableIndex(Client client, String indexName, String documentType) throws IOException {
 
 		IndicesExistsResponse res = client.admin().indices().prepareExists(indexName).execute().actionGet();
 		if (res.isExists()) {
@@ -189,11 +197,13 @@ public class PSQL2ESBulkIndexing {
 			delIdx.execute().actionGet();
 		}
 
+		
 		CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices().prepareCreate(indexName);
 
 		XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject().startObject(documentType)
 				.startObject("properties").startObject("content").field("type", "string").field("analyzer", "english")
-				.endObject().startObject("Subject").field("type", "string").field("analyzer", "english").endObject()
+				.field("term_vector", "with_positions_offsets_payloads").field("store", "yes").endObject()
+				.startObject("Subject").field("type", "string").field("analyzer", "english").endObject()
 				.startObject("Header").field("type", "string").field("analyzer", "english").endObject()
 				.startObject("Origin").field("type", "string").field("index", "not_analyzed").endObject()
 				.startObject("Classification").field("type", "string").field("index", "not_analyzed").endObject()
@@ -206,7 +216,7 @@ public class PSQL2ESBulkIndexing {
 
 		createIndexRequestBuilder.execute().actionGet();
 	}
-	
+
 	public static void createEnronIndex(Client client, String indexName, String documentType) throws Exception {
 
 		IndicesExistsResponse res = client.admin().indices().prepareExists(indexName).execute().actionGet();
@@ -219,28 +229,31 @@ public class PSQL2ESBulkIndexing {
 
 		XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject().startObject(documentType)
 				.startObject("properties").startObject("content").field("type", "string").field("analyzer", "english")
-				.endObject().startObject("Subject").field("type", "string").field("analyzer", "english").endObject()
-				
+				.endObject().startObject("Subject").field("type", "string")
+				.field("term_vector", "with_positions_offsets_payloads").field("store", "yes")
+				.field("analyzer", "english").endObject()
+
 				.startObject("Timezone").field("type", "string").field("index", "not_analyzed").endObject()
-				
-				.startObject("Recipients_name").field("type", "string").field("store", "yes").field("index", "not_analyzed").endObject()
-				.startObject("Recipients_email").field("type", "string").field("store", "yes").field("index", "not_analyzed").endObject()
-				.startObject("Recipients_order").field("type", "short").field("store", "yes").field("index", "not_analyzed").endObject()
-				.startObject("Recipients_type").field("type", "string").field("store", "yes").field("index", "not_analyzed").endObject()
-				.startObject("Recipients_id").field("type", "long").field("store", "yes").field("index", "not_analyzed").endObject()
-				
+				.startObject("Recipients_name").field("type", "string").field("store", "yes")
+				.field("index", "not_analyzed").endObject().startObject("Recipients_email").field("type", "string")
+				.field("store", "yes").field("index", "not_analyzed").endObject().startObject("Recipients_order")
+				.field("type", "short").field("store", "yes").field("index", "not_analyzed").endObject()
+				.startObject("Recipients_type").field("type", "string").field("store", "yes")
+				.field("index", "not_analyzed").endObject().startObject("Recipients_id").field("type", "long")
+				.field("store", "yes").field("index", "not_analyzed").endObject()
+
 				.startObject("sender_id").field("type", "long").field("index", "not_analyzed").endObject()
 				.startObject("sender_email").field("type", "string").field("index", "not_analyzed").endObject()
 				.startObject("sender_name").field("type", "string").field("index", "not_analyzed").endObject()
 				.endObject().endObject();
 		createIndexRequestBuilder.addMapping(documentType, mappingBuilder);
 
-		try{
-		CreateIndexResponse response = createIndexRequestBuilder.execute().actionGet();
-		if (!response.isAcknowledged()) {
-			throw new Exception("Failed to delete index " + indexName);
-		}
-		}catch(Exception e){
+		try {
+			CreateIndexResponse response = createIndexRequestBuilder.execute().actionGet();
+			if (!response.isAcknowledged()) {
+				throw new Exception("Failed to delete index " + indexName);
+			}
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
