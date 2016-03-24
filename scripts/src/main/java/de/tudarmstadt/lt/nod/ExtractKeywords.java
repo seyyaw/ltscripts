@@ -28,7 +28,7 @@ public class ExtractKeywords {
 		Configuration.setModelFileLocation("model/default/english-lexicon.txt");
 		TermsExtractor termExtractor = new TermsExtractor();
 		TermDocument termDocument = new TermDocument();
-		initDB("cable");
+		initDB("cable","","","");
 		st.setFetchSize(50);
 		ResultSet docSt = st.executeQuery("select * from document;");
 
@@ -45,13 +45,13 @@ public class ExtractKeywords {
 
 	}
 
-	public static void initDB(String aDbName)
+	public static void initDB(String aDbName, String ip, String user, String pswd)
 			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
-		String url = "jdbc:postgresql://130.83.164.196/";
+		String url = "jdbc:postgresql://"+ip+"/";
 		String dbName = aDbName;
 		String driver = "org.postgresql.Driver";
-		String userName = "seid";
-		String password = "seid";
+		String userName = user;
+		String password = pswd;
 		Class.forName(driver).newInstance();
 		conn = DriverManager.getConnection(url + dbName, userName, password);
 		conn.setAutoCommit(false);

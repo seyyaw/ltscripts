@@ -59,7 +59,7 @@ public class PSQL2ESBulkIndexing {
 			logger.error(usage);
 			System.exit(1);
 		}
-		initDB(args[0]);
+		ExtractKeywords.initDB(args[0],"","","");
 		Path path = new File(args[2]).toPath();
 		Settings settings = settingsBuilder().loadFromPath(path).build();
 
@@ -162,18 +162,6 @@ public class PSQL2ESBulkIndexing {
 			}
 		}
 
-	}
-
-	private static void initDB(String aDbName)
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
-		String url = "jdbc:postgresql://130.83.164.196/";
-		String dbName =aDbName;
-		String driver = "org.postgresql.Driver";
-		String userName = "seid";
-		String password = "seid";
-		Class.forName(driver).newInstance();
-		conn = DriverManager.getConnection(url + dbName, userName, password);
-		st = conn.createStatement();
 	}
 
 	public static void createIndex(String indexName, Client client) throws Exception {
