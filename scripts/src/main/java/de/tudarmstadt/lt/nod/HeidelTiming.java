@@ -62,7 +62,7 @@ public class HeidelTiming {
 			System.exit(0);
 		}
 		long startTime = System.currentTimeMillis();
-		initDB("cable");
+		ExtractKeywords.initDB("cable","","","");
 		st.setFetchSize(50);
 		ResultSet docSt = st.executeQuery("select * from document;");
 		int counter = 0;
@@ -254,18 +254,5 @@ public class HeidelTiming {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-	}
-
-	public static void initDB(String aDbName)
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
-		String url = "jdbc:postgresql://130.83.164.196/";
-		String dbName = aDbName;
-		String driver = "org.postgresql.Driver";
-		String userName = "seid";
-		String password = "seid";
-		Class.forName(driver).newInstance();
-		conn = DriverManager.getConnection(url + dbName, userName, password);
-		conn.setAutoCommit(false);
-		st = conn.createStatement();
 	}
 }
