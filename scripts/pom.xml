@@ -89,6 +89,12 @@
 			<artifactId>heideltime</artifactId>
 			<version>2.3.1</version>
 		</dependency>
+		<!-- keyword extraction -->
+		<dependency>
+			<groupId>com.sree.textbytes</groupId>
+			<artifactId>jtopia</artifactId>
+			<version>0.0.3</version>
+		</dependency>
 	</dependencies>
 	<build>
 		<defaultGoal>install</defaultGoal>
@@ -109,9 +115,9 @@
 					<archive>
 						<manifest>
 							<addClasspath>true</addClasspath>
-						<!-- <mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass> -->	
-						<mainClass>de.tudarmstadt.lt.nod.HeidelTiming</mainClass>
-						
+							<!-- <mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass> -->
+							<mainClass>de.tudarmstadt.lt.nod.HeidelTiming</mainClass>
+
 						</manifest>
 					</archive>
 				</configuration>
@@ -124,7 +130,7 @@
 					</descriptorRefs>
 					<archive>
 						<manifest>
-						<!-- <mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass> -->
+							<!-- <mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass> -->
 							<mainClass>de.tudarmstadt.lt.nod.HeidelTiming</mainClass>
 						</manifest>
 					</archive>

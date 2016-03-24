@@ -63,7 +63,7 @@ public class HeidelTiming {
 		}
 		long startTime = System.currentTimeMillis();
 		initDB("cable");
-		st.setFetchSize(50);;
+		st.setFetchSize(50);
 		ResultSet docSt = st.executeQuery("select * from document;");
 		int counter = 0;
 		while (docSt.next()) {
