@@ -49,7 +49,6 @@ public class ExtractKeywords {
 		ExecutorService t = Executors.newFixedThreadPool(50);
 
 		while (docSt.next()) {
-			count++;
 			String content = docSt.getString("content");
 			Long id = docSt.getLong("id");
 
