@@ -62,7 +62,12 @@ public class PSQL2ESBulkIndexing
             logger.error(usage);
             System.exit(1);
         }
-        initDB(args[0], "", "seid", "seid");
+        if (args.length == 3) {
+            logger.error("please provide ip address of the psql server ");
+            logger.error(usage);
+            System.exit(1);
+        }
+        initDB(args[0], args[3], "seid", "seid");
         st.setFetchSize(50);
         Path path = new File(args[2]).toPath();
         Settings settings = settingsBuilder().loadFromPath(path).build();
@@ -123,8 +128,9 @@ public class PSQL2ESBulkIndexing
         ResultSet docSt = st.executeQuery("select * from document;");
         BulkRequestBuilder bulkRequest = client.prepareBulk();
         int bblen = 0;
-        List<NamedEntity> namedEntity = new ArrayList<>();
+       
         while (docSt.next()) {
+        	 List<NamedEntity> namedEntity = new ArrayList<>();
             String content = docSt.getString("content");
             Date created = docSt.getDate("created");
             Integer docId = docSt.getInt("id");
@@ -210,7 +216,7 @@ public class PSQL2ESBulkIndexing
             bulkRequest.add(
                     client.prepareIndex(indexName, documentType, docId.toString()).setSource(xb));
             bblen++;
-            if (bblen % 1000 == 0) {
+            if (bblen % 30 == 0) {
                 logger.info("##### " + bblen + " documents are indexed.");
                 BulkResponse bulkResponse = bulkRequest.execute().actionGet();
                 if (bulkResponse.hasFailures()) {
