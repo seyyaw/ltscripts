@@ -67,6 +67,12 @@ public class PSQL2ESBulkIndexing
             logger.error(usage);
             System.exit(1);
         }
+        try { 
+            Integer.parseInt(args[1]); 
+        } catch(NumberFormatException e) { 
+            logger.error("The second argument shopuld be a number 1 for cable or 2 for enron dataset");
+            System.exit(1);
+        }
         initDB(args[0], args[3], "seid", "seid");
         st.setFetchSize(50);
         Path path = new File(args[2]).toPath();
@@ -75,7 +81,7 @@ public class PSQL2ESBulkIndexing
         Node node = nodeBuilder().settings(settings).node();
         Client client = node.client();
         // document2Json();
-        documenIndexer(client, args[1], "document");
+        documenIndexer(client, Integer.valueOf(args[1]), "document");
     }
 
     private static void document2Json()
@@ -105,17 +111,24 @@ public class PSQL2ESBulkIndexing
         }
     }
 
-    private static void documenIndexer(Client client, String indexName, String documentType)
+    private static void documenIndexer(Client client, int index, String documentType)
         throws Exception
     {
+    	String indexName = null;
         try {
+        	if(index ==1){
+        		indexName = "cable";
+        	}
+        	else {
+        		indexName = "enron";
+        	}
             boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet()
                     .isExists();
             if (!exists) {
                 System.out.println("Index " + indexName + " will be created.");
                 // createIndex(indexName, client);
-                createcableIndex(client, indexName, documentType);
-                // createEnronIndex(client, indexName, documentType);
+                //createcableIndex(client, indexName, documentType);
+                createEnronIndex(client, indexName, documentType);
 
                 System.out.println("Index " + indexName + " is created.");
             }
@@ -270,7 +283,7 @@ public class PSQL2ESBulkIndexing
         XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject()
                 .startObject(documentType).startObject("properties").startObject("content")
                 .field("type", "string").field("analyzer", "english")
-                .field("term_vector", "with_positions_offsets_payloads").field("store", "yes")
+                .field("store", "yes")
                 .endObject().startObject("Subject").field("type", "string")
                 .field("analyzer", "english").endObject().startObject("Header")
                 .field("type", "string").field("analyzer", "english").endObject()
@@ -319,7 +332,7 @@ public class PSQL2ESBulkIndexing
                 .startObject(documentType).startObject("properties").startObject("content")
                 .field("type", "string").field("analyzer", "english").endObject()
                 .startObject("Subject").field("type", "string")
-                .field("term_vector", "with_positions_offsets_payloads").field("store", "yes")
+                .field("store", "yes")
                 .field("analyzer", "english").endObject()
 
                 .startObject("Timezone").field("type", "string").field("index", "not_analyzed")
