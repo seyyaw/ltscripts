@@ -276,7 +276,7 @@ public class PSQL2ESBulkIndexing
             
             //// Adding TimeX
             if (timexs.size() > 0) {
-                xb.startArray("Keywords");
+                xb.startArray("EventTimes");
                 for (TimeX t: timexs) {
                     xb.startObject();
                     xb.field("Beginoffset", t.beginOffset);
