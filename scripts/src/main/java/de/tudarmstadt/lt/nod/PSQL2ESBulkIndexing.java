@@ -12,7 +12,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,37 +45,54 @@ public class PSQL2ESBulkIndexing
     public static void main(String[] args)
         throws Exception
     {
-        String usage = "Run as: java -jar dbname indexname elasticsearch.yml";
+        String usage = "Run as: java -jar dbnameid (1 0r 2)  elasticsearch.yml psqldbAddress";
         if (args.length == 0) {
             logger.error("please provide dbname name");
             logger.error(usage);
             System.exit(1);
         }
-        if (args.length == 1) {
+/*        if (args.length == 1) {
             logger.error("please provide index name ");
             logger.error(usage);
             System.exit(1);
-        }
-        if (args.length == 2) {
+        }*/
+        if (args.length == 1) {
             logger.error("please provide elasticsearch.yml file ");
             logger.error(usage);
             System.exit(1);
         }
-        initDB(args[0], " ", "seid", "seid");
-        Path path = new File(args[2]).toPath();
+        if (args.length == 2) {
+            logger.error("please provide ip address of the psql server ");
+            logger.error(usage);
+            System.exit(1);
+        }
+        if (args.length == 3) {
+            logger.error("please provide mapping file ");
+            logger.error(usage);
+            System.exit(1);
+        }
+        try { 
+            Integer.parseInt(args[0]); 
+        } catch(NumberFormatException e) { 
+            logger.error("The first argument shopuld be a number 1 for cable or 2 for enron dataset");
+            System.exit(1);
+        }
+        initDB(Integer.parseInt(args[0]), args[2], "seid", "seid");
+        st.setFetchSize(50);
+        Path path = new File(args[1]).toPath();
         Settings settings = settingsBuilder().loadFromPath(path).build();
 
         Node node = nodeBuilder().settings(settings).node();
         Client client = node.client();
         // document2Json();
-        documenIndexer(client, args[1], "document");
+        documenIndexer(client, Integer.valueOf(args[0]), "document"/*, args[3]*/);
     }
 
     private static void document2Json()
     {
         JsonWriter writer;
         try {
-            ResultSet docSt = st.executeQuery("select * from document limit 3;");
+            ResultSet docSt = st.executeQuery("select * from document;");
             writer = new JsonWriter(new FileWriter("document.json"));
             writer.beginArray();
             while (docSt.next()) {
@@ -99,19 +115,34 @@ public class PSQL2ESBulkIndexing
         }
     }
 
-    private static void documenIndexer(Client client, String indexName, String documentType)
+    private static void documenIndexer(Client client, int index, String documentType/*, String mappingFile*/)
         throws Exception
     {
+        String indexName = null;
         try {
-            boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet()
-                    .isExists();
-            if (!exists) {
-                System.out.println("Index " + indexName + " will be created.");
-                // createIndex(indexName, client);
-                createcableIndex(client, indexName, documentType);
-                // createEnronIndex(client, indexName, documentType);
+            if(index ==1){
+                indexName = "cable";
+                boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet()
+                        .isExists();
+                if (!exists) {
+                    System.out.println("Index " + indexName + " will be created.");
+                    // createIndex(indexName, client);
+                    createcableIndex(client, indexName, documentType/*, mappingFile*/);
 
-                System.out.println("Index " + indexName + " is created.");
+                    System.out.println("Index " + indexName + " is created.");
+                }
+            }
+            else {
+                indexName = "enron";
+                boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet()
+                        .isExists();
+                if (!exists) {
+                    System.out.println("Index " + indexName + " will be created.");
+                    // createIndex(indexName, client);
+                    createEnronIndex(client, indexName, documentType);
+
+                    System.out.println("Index " + indexName + " is created.");
+                }
             }
         }
         catch (Exception e) {
@@ -119,11 +150,13 @@ public class PSQL2ESBulkIndexing
             logger.error(e.getMessage());
         }
 
-        ResultSet docSt = st.executeQuery("select * from document limit 3;");
+        
+        ResultSet docSt = st.executeQuery("select * from document;");
         BulkRequestBuilder bulkRequest = client.prepareBulk();
         int bblen = 0;
-        List<NamedEntity> namedEntity = new ArrayList<>();
+       
         while (docSt.next()) {
+             List<NamedEntity> namedEntity = new ArrayList<>();
             String content = docSt.getString("content");
             Date created = docSt.getDate("created");
             Integer docId = docSt.getInt("id");
@@ -141,8 +174,23 @@ public class PSQL2ESBulkIndexing
                 }
 
             }
+            
+            
+            ///// Adding important terms to the index - ONLY top 10
+            
+            ResultSet docTermSt = conn.createStatement()
+                    .executeQuery("select * from terms where  docid = " + docId + " limit 10;");
+            
+            Map<String, Integer> termMap = new HashMap<>();
+            while (docTermSt.next()) {
+                String term = docTermSt.getString("term");
+                int freq = docTermSt.getInt("frequency");
+                termMap.put(term, freq);
+            }
+            
+            
 
-            ResultSet docRelSt = conn.createStatement().executeQuery(
+           /* ResultSet docRelSt = conn.createStatement().executeQuery(
                     "select * from documentrelationship where  docid = " + docId + ";");
             Map<Long, String> rels = new HashMap<>();
             Map<Long, Integer> relIds = new HashMap<>();
@@ -155,7 +203,7 @@ public class PSQL2ESBulkIndexing
                     relIds.put(relId, docRelSt.getInt("frequency"));
                 }
 
-            }
+            }*/
 
             ResultSet metadataSt = conn.createStatement()
                     .executeQuery("select * from metadata where docid =" + docId + ";");
@@ -180,20 +228,35 @@ public class PSQL2ESBulkIndexing
                     xb.field(key, metas.get(key).get(0));
                 }
             }
+            
+            ///// Adding entities
+            
             if (namedEntity.size() > 0) {
                 xb.startArray("entities");
                 for (NamedEntity ne : namedEntity) {
                     xb.startObject();
-                    xb.field("id", ne.id);
-                    xb.field("name", ne.name);
-                    xb.field("Entitytype", ne.type);
-                    xb.field("frequency", ne.frequency);
+                    xb.field("entId", ne.id);
+                    xb.field("entname", ne.name);
+                    xb.field("entType", ne.type);
+                    xb.field("entFrequency", ne.frequency);
                     xb.endObject();
                 }
                 xb.endArray();
             }
 
-            if (rels.size() > 0) {
+            
+            //// Adding terms
+            if (termMap.size() > 0) {
+                xb.startArray("keywords");
+                for (String term : termMap.keySet()) {
+                    xb.startObject();
+                    xb.field("keyword", term);
+                    xb.field("termFrequency", termMap.get(term));
+                    xb.endObject();
+                }
+                xb.endArray();
+            }
+       /*     if (rels.size() > 0) {
                 xb.startArray("relations");
                 for (Long relId : rels.keySet()) {
                     xb.startObject();
@@ -203,13 +266,13 @@ public class PSQL2ESBulkIndexing
                     xb.endObject();
                 }
                 xb.endArray();
-            }
+            }*/
             xb.endObject();
             metadataSt.close();
             bulkRequest.add(
                     client.prepareIndex(indexName, documentType, docId.toString()).setSource(xb));
             bblen++;
-            if (bblen % 1000 == 0) {
+            if (bblen % 30 == 0) {
                 logger.info("##### " + bblen + " documents are indexed.");
                 BulkResponse bulkResponse = bulkRequest.execute().actionGet();
                 if (bulkResponse.hasFailures()) {
@@ -246,7 +309,7 @@ public class PSQL2ESBulkIndexing
     // Based on this so:
     // http://stackoverflow.com/questions/22071198/adding-mapping-to-a-type-from-java-how-do-i-do-it
 
-    public static void createcableIndex(Client client, String indexName, String documentType)
+    public static void createcableIndex(Client client, String indexName, String documentType/*, String mapping*/)
         throws IOException
     {
 
@@ -260,10 +323,9 @@ public class PSQL2ESBulkIndexing
         CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices()
                 .prepareCreate(indexName);
 
-        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject()
+/*        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject()
                 .startObject(documentType).startObject("properties").startObject("content")
                 .field("type", "string").field("analyzer", "english")
-                .field("term_vector", "with_positions_offsets_payloads").field("store", "yes")
                 .endObject().startObject("Subject").field("type", "string")
                 .field("analyzer", "english").endObject().startObject("Header")
                 .field("type", "string").field("analyzer", "english").endObject()
@@ -271,24 +333,50 @@ public class PSQL2ESBulkIndexing
                 .endObject().startObject("Classification").field("type", "string")
                 .field("index", "not_analyzed").endObject().startObject("ReferenceId")
                 .field("type", "string").field("index", "not_analyzed").endObject()
-                .startObject("References").field("type", "string").field("store", "yes")
+                .startObject("References").field("type", "string")
                 .field("index", "not_analyzed").endObject().startObject("SignedBy")
-                .field("type", "string").field("store", "yes").field("index", "not_analyzed")
-                .endObject().startObject("Tags").field("type", "string").field("store", "yes")
+                .field("type", "string").field("index", "not_analyzed")
+                .endObject().startObject("Tags").field("type", "string")
                 .field("index", "not_analyzed").endObject()
 
-                .startArray("entities").field("store", "yes").startObject("id")
+                .startArray("entities").startObject("id")
                 .field("type", "integer").field("index", "not_analyzed").endObject().startObject("name")
                 .field("type", "string").field("index", "not_analyzed").endObject()
                 .startObject("Entitytype").field("type", "string").field("index", "not_analyzed")
                 .endObject().startObject("frequency").field("type", "integer")
                 .field("index", "not_analyzed").endObject().endArray()
 
-                .startArray("relations").field("store", "yes").startObject("id")
+                .startArray("relations").startObject("id")
                 .field("type", "integer").field("index", "not_analyzed").endObject()
                 .startObject("relation").field("type", "string").field("index", "not_analyzed")
                 .endObject().startObject("frequency").field("type", "integer")
-                .field("index", "not_analyzed").endObject().endArray().endObject().endObject();
+                .field("index", "not_analyzed").endObject().endArray().endObject().endObject();*/
+        
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject().startObject(documentType)
+                .startObject("properties").startObject("content").field("type", "string").field("analyzer", "english")
+                .endObject().startObject("Subject").field("type", "string").field("analyzer", "english").endObject()
+                .startObject("Header").field("type", "string").field("analyzer", "english").endObject()
+                .startObject("Origin").field("type", "string").field("index", "not_analyzed").endObject()
+                .startObject("Classification").field("type", "string").field("index", "not_analyzed").endObject()
+                .startObject("ReferenceId").field("type", "string").field("index", "not_analyzed").endObject()
+                .startObject("References").field("type", "string").field("store", "yes").field("index", "not_analyzed")
+                .endObject().startObject("SignedBy").field("type", "string").field("store", "yes")
+                .field("index", "not_analyzed").endObject().startObject("Tags").field("type", "string")
+                .field("store", "yes").field("index", "not_analyzed").endObject()
+                
+                .startArray("entities").startObject("entId")
+                .field("type", "long").endObject().startObject("entname")
+                .field("type", "string").field("index", "not_analyzed").endObject()
+                .startObject("entType").field("type", "string").field("index", "not_analyzed")
+                .endObject().startObject("entFrequency").field("type", "long")
+               .endObject().endArray()
+                
+                .endObject().endObject();
+        
+   /*     String mappingFile = new String(Files.readAllBytes(Paths.get(mapping)));
+        
+        createIndexRequestBuilder.addMapping(documentType, mappingFile);
+*/
         createIndexRequestBuilder.addMapping(documentType, mappingBuilder);
 
         createIndexRequestBuilder.execute().actionGet();
@@ -312,18 +400,17 @@ public class PSQL2ESBulkIndexing
                 .startObject(documentType).startObject("properties").startObject("content")
                 .field("type", "string").field("analyzer", "english").endObject()
                 .startObject("Subject").field("type", "string")
-                .field("term_vector", "with_positions_offsets_payloads").field("store", "yes")
                 .field("analyzer", "english").endObject()
 
                 .startObject("Timezone").field("type", "string").field("index", "not_analyzed")
                 .endObject().startObject("Recipients_name").field("type", "string")
-                .field("store", "yes").field("index", "not_analyzed").endObject()
-                .startObject("Recipients_email").field("type", "string").field("store", "yes")
+                .field("index", "not_analyzed").endObject()
+                .startObject("Recipients_email").field("type", "string")
                 .field("index", "not_analyzed").endObject().startObject("Recipients_order")
-                .field("type", "short").field("store", "yes").field("index", "not_analyzed")
+                .field("type", "short").field("index", "not_analyzed")
                 .endObject().startObject("Recipients_type").field("type", "string")
-                .field("store", "yes").field("index", "not_analyzed").endObject()
-                .startObject("Recipients_id").field("type", "long").field("store", "yes")
+                .field("index", "not_analyzed").endObject()
+                .startObject("Recipients_id").field("type", "long")
                 .field("index", "not_analyzed").endObject()
 
                 .startObject("sender_id").field("type", "long").field("index", "not_analyzed")
@@ -331,18 +418,18 @@ public class PSQL2ESBulkIndexing
                 .field("index", "not_analyzed").endObject().startObject("sender_name")
                 .field("type", "string").field("index", "not_analyzed")
 
-                .startArray("entities").field("store", "yes").startObject("id")
+                .startArray("entities").startObject("id")
                 .field("type", "integer").field("index", "not_analyzed").endObject()
                 .startObject("name").field("type", "string").field("index", "not_analyzed")
                 .endObject().startObject("Entitytype").field("type", "string")
                 .field("index", "not_analyzed").endObject().startObject("frequency")
                 .field("type", "integer").field("index", "not_analyzed").endObject().endArray()
 
-                .startArray("relations").field("store", "yes").startObject("id")
+                /*.startArray("relations").startObject("id")
                 .field("type", "integer").field("index", "not_analyzed").endObject()
                 .startObject("relation").field("type", "string").field("index", "not_analyzed")
                 .endObject().startObject("frequency").field("type", "integer")
-                .field("index", "not_analyzed").endObject().endArray().endObject().endObject();
+                .field("index", "not_analyzed").endObject().endArray()*/.endObject().endObject();
         createIndexRequestBuilder.addMapping(documentType, mappingBuilder);
 
         try {
@@ -356,11 +443,16 @@ public class PSQL2ESBulkIndexing
         }
     }
 
-    static void initDB(String aDbName, String ip, String user, String pswd)
+    
+    static void initDB(int index, String ip, String user, String pswd)
         throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException
-    {
+    {String dbName;
+        if(index ==1){
+            dbName = "cable";
+        }else{
+            dbName = "enron";
+        }
         String url = "jdbc:postgresql://" + ip + "/";
-        String dbName = aDbName;
         String driver = "org.postgresql.Driver";
         String userName = user;
         String password = pswd;

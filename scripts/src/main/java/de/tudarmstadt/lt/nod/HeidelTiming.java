@@ -16,8 +16,13 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 
 import org.apache.commons.io.IOUtils;
+
+import com.sree.textbytes.jtopia.TermsExtractor;
 
 import de.unihd.dbs.heideltime.standalone.CLISwitch;
 import de.unihd.dbs.heideltime.standalone.Config;
@@ -34,8 +39,8 @@ public class HeidelTiming {
 
 	public static void main(String[] arg) throws ParseException, InstantiationException, IllegalAccessException,
 			ClassNotFoundException, SQLException, FileNotFoundException {
-		String[] args = new String[] { "-c","config.props","-t","news","-o","newsleak" };
-		FileOutputStream os = new FileOutputStream("heideltime.tsv");
+		String[] args = new String[] { "-c", "config.props", "-t", "news", "-o", "newsleak" };
+		// FileOutputStream os = new FileOutputStream("heideltime.tsv");
 		for (int i = 0; i < args.length; i++) {
 			if (args[i].startsWith("-")) {
 				CLISwitch sw = CLISwitch.getEnumFromSwitch(args[i]);
@@ -62,132 +67,110 @@ public class HeidelTiming {
 			System.exit(0);
 		}
 		long startTime = System.currentTimeMillis();
-		ExtractKeywords.initDB("cable","","","");
+		initDB("", "", "", "");
 		st.setFetchSize(50);
 		ResultSet docSt = st.executeQuery("select * from document;");
-		int counter = 0;
-		while (docSt.next()) {
-			counter++;
-			if (counter % 100 == 0) {
-				System.out.println(counter);
+
+		ThreadLocal<FileOutputStream> os = ThreadLocal.withInitial(new Supplier<FileOutputStream>() {
+			@Override
+			public FileOutputStream get() {
+				try {
+					return new FileOutputStream("heideltimex-" + Thread.currentThread().getId() + ".tsv");
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
 			}
+
+		});
+		// Check output format
+		OutputType outputType  = OutputType.valueOf(CLISwitch.OUTPUTTYPE.getValue().toString().trim().toUpperCase());
+	
+
+		// Check language
+		Language language = Language.getLanguageFromString((String) CLISwitch.LANGUAGE.getValue());
+
+		// Check type
+		DocumentType type =DocumentType.valueOf(CLISwitch.DOCTYPE.getValue().toString().toUpperCase());
+	
+
+		// Set the preprocessing POS tagger
+		POSTagger posTagger =  (POSTagger) CLISwitch.POSTAGGER.getValue();
+		// Read configuration from file
+		String configPath = CLISwitch.CONFIGFILE.getValue().toString();
+		try {
+			readConfigFile(configPath);
+		} catch (Exception e) {
+			printHelp();
+			System.exit(-1);
+		}
+
+		// Set whether or not to use the Interval Tagger
+		Boolean doIntervalTagging = false;
+
+		ThreadLocal<HeidelTimeStandalone> standalone = ThreadLocal.withInitial(
+				() -> new HeidelTimeStandalone(language, type, outputType, null, posTagger, doIntervalTagging));
+
+		ExecutorService t = Executors.newFixedThreadPool(50);
+
+		while (docSt.next()) {
+
 			String content = docSt.getString("content");
 			Date created = docSt.getDate("created");
 			Long id = docSt.getLong("id");
+			t.execute(new Runnable() {
+				@Override
+				public void run() {
 
-			// Check output format
-			OutputType outputType = null;
-			if (CLISwitch.OUTPUTTYPE.getIsActive()) {
-				outputType = OutputType.valueOf(CLISwitch.OUTPUTTYPE.getValue().toString().trim().toUpperCase());
-			} else {
-				// Output type not found
-				outputType = (OutputType) CLISwitch.OUTPUTTYPE.getValue();
-			}
-
-			// Check language
-			Language language = null;
-			if (CLISwitch.LANGUAGE.getIsActive()) {
-				language = Language.getLanguageFromString((String) CLISwitch.LANGUAGE.getValue());
-
-				if (language == Language.WILDCARD
-						&& !ResourceScanner.getInstance().getDetectedResourceFolders().contains(language.getName())) {
-					printHelp();
-					System.exit(-1);
-				} else {
-				}
-			} else {
-				// Language not found
-				language = Language.getLanguageFromString((String) CLISwitch.LANGUAGE.getValue());
-				;
-			}
-
-			// Check type
-			DocumentType type = null;
-			if (CLISwitch.DOCTYPE.getIsActive()) {
-				try {
-					if (CLISwitch.DOCTYPE.getValue().equals("narrative")) {
-						CLISwitch.DOCTYPE.setValue("narratives");
+					// Check document creation time
+					Date dct = null;
+					try {
+						DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+						dct = formatter.parse(created.toString());
+					} catch (Exception e) {
+						printHelp();
+						System.exit(-1);
 					}
-					type = DocumentType.valueOf(CLISwitch.DOCTYPE.getValue().toString().toUpperCase());
-				} catch (IllegalArgumentException e) {
-					System.exit(-1);
-				}
-			} else {
-				// Type not found
-				type = (DocumentType) CLISwitch.DOCTYPE.getValue();
-			}
 
-			// Check document creation time
-			Date dct = null;
+					// Handle locale switch
+					String locale = (String) CLISwitch.LOCALE.getValue();
+					Locale myLocale = null;
+					if (CLISwitch.LOCALE.getIsActive()) {
+						// check if the requested locale is available
+						for (Locale l : Locale.getAvailableLocales()) {
+							if (l.toString().toLowerCase().equals(locale.toLowerCase()))
+								myLocale = l;
+						}
+
+						try {
+							Locale.setDefault(myLocale); // try to set the
+															// locale
+						} catch (Exception e) {
+							printHelp();
+							System.exit(-1);
+						}
+					}
+
+					try {
+
+						String out = standalone.get().process(content, dct);
+						for (String line : out.split("\n")) {
+							IOUtils.write(id + "\t" + line + "\n", os.get(), "UTF-8");
+						}
+
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+		t.shutdown();
+		while (!t.isTerminated())
 			try {
-				DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-				dct = formatter.parse(created.toString());
-			} catch (Exception e) {
-				printHelp();
-				System.exit(-1);
-			}
-
-			// Handle locale switch
-			String locale = (String) CLISwitch.LOCALE.getValue();
-			Locale myLocale = null;
-			if (CLISwitch.LOCALE.getIsActive()) {
-				// check if the requested locale is available
-				for (Locale l : Locale.getAvailableLocales()) {
-					if (l.toString().toLowerCase().equals(locale.toLowerCase()))
-						myLocale = l;
-				}
-
-				try {
-					Locale.setDefault(myLocale); // try to set the locale
-				} catch (Exception e) {
-					printHelp();
-					System.exit(-1);
-				}
-			}
-
-			// Read configuration from file
-			String configPath = CLISwitch.CONFIGFILE.getValue().toString();
-			try {
-				readConfigFile(configPath);
-			} catch (Exception e) {
-				printHelp();
-				System.exit(-1);
-			}
-
-			// Set the preprocessing POS tagger
-			POSTagger posTagger = null;
-			if (CLISwitch.POSTAGGER.getIsActive()) {
-				try {
-					posTagger = POSTagger.valueOf(CLISwitch.POSTAGGER.getValue().toString().toUpperCase());
-				} catch (IllegalArgumentException e) {
-					printHelp();
-					System.exit(-1);
-				}
-			} else {
-				// Type not found
-				posTagger = (POSTagger) CLISwitch.POSTAGGER.getValue();
-			}
-
-			// Set whether or not to use the Interval Tagger
-			Boolean doIntervalTagging = false;
-			if (CLISwitch.INTERVALS.getIsActive()) {
-				doIntervalTagging = CLISwitch.INTERVALS.getIsActive();
-			} else {
-			}
-
-			try {
-
-				HeidelTimeStandalone standalone = new HeidelTimeStandalone(language, type, outputType, null, posTagger,
-						doIntervalTagging);
-				String out = standalone.process(content, dct);
-				for (String line : out.split("\n")) {
-					IOUtils.write(id + "\t" + line + "\n", os, "UTF-8");
-				}
-
-			} catch (Exception e) {
+				Thread.sleep(10L);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		}
 		conn.close();
 		long endTime = System.currentTimeMillis();
 		long totalTime = endTime - startTime;
@@ -254,5 +237,18 @@ public class HeidelTiming {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public static void initDB(String aDbName, String ip, String user, String pswd)
+			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
+		String url = "jdbc:postgresql://" + ip + "/";
+		String dbName = aDbName;
+		String driver = "org.postgresql.Driver";
+		String userName = user;
+		String password = pswd;
+		Class.forName(driver).newInstance();
+		conn = DriverManager.getConnection(url + dbName, userName, password);
+		conn.setAutoCommit(false);
+		st = conn.createStatement();
 	}
 }
