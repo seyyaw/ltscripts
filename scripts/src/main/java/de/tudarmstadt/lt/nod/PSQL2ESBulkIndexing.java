@@ -36,6 +36,8 @@ import static org.elasticsearch.node.NodeBuilder.*;
 
 import com.google.gson.stream.JsonWriter;
 
+import edu.stanford.nlp.util.StringUtils;
+
 public class PSQL2ESBulkIndexing
 {
     private static Connection conn;
@@ -187,8 +189,20 @@ public class PSQL2ESBulkIndexing
                 int freq = docTermSt.getInt("frequency");
                 termMap.put(term, freq);
             }
+             
             
+            //// Adding Timex to ES index
             
+            ResultSet docTimexSt = conn.createStatement()
+                    .executeQuery("select * from eventtime where  docid = " + docId + ";");
+
+			List<TimeX> timexs = new ArrayList<>();
+			while (docTimexSt.next()) {
+				TimeX t = new TimeX(docTimexSt.getInt("beginoffset"), docTimexSt.getInt("endoffset"),
+						docTimexSt.getString("timex"), docTimexSt.getString("type"),
+						docTimexSt.getString("timexvalue"));
+				timexs.add(t);
+			}
 
            /* ResultSet docRelSt = conn.createStatement().executeQuery(
                     "select * from documentrelationship where  docid = " + docId + ";");
@@ -209,10 +223,11 @@ public class PSQL2ESBulkIndexing
                     .executeQuery("select * from metadata where docid =" + docId + ";");
 
             XContentBuilder xb = XContentFactory.jsonBuilder().startObject();
-            xb.field("content", content).field("created", created);
+            xb.field("Content", content).field("Created", created);
             Map<String, List<String>> metas = new HashMap<>();
             while (metadataSt.next()) {
-                String key = metadataSt.getString("key").replace(".", "_");
+            	// we capitalize the first character on purpose
+                String key = StringUtils.capitalize(metadataSt.getString("key").replace(".", "_"));
                 String value = metadataSt.getString("value");
                 // Object type = metadataSt.getObject("type");
                 // xb.field(key, value)/* .field("value",
@@ -232,13 +247,13 @@ public class PSQL2ESBulkIndexing
             ///// Adding entities
             
             if (namedEntity.size() > 0) {
-                xb.startArray("entities");
+                xb.startArray("Entities");
                 for (NamedEntity ne : namedEntity) {
                     xb.startObject();
-                    xb.field("entId", ne.id);
-                    xb.field("entname", ne.name);
-                    xb.field("entType", ne.type);
-                    xb.field("entFrequency", ne.frequency);
+                    xb.field("EntId", ne.id);
+                    xb.field("Entname", ne.name);
+                    xb.field("EntType", ne.type);
+                    xb.field("EntFrequency", ne.frequency);
                     xb.endObject();
                 }
                 xb.endArray();
@@ -247,11 +262,28 @@ public class PSQL2ESBulkIndexing
             
             //// Adding terms
             if (termMap.size() > 0) {
-                xb.startArray("keywords");
+                xb.startArray("Keywords");
                 for (String term : termMap.keySet()) {
                     xb.startObject();
-                    xb.field("keyword", term);
-                    xb.field("termFrequency", termMap.get(term));
+                    xb.field("Keyword", term);
+                    xb.field("TermFrequency", termMap.get(term));
+                    xb.endObject();
+                }
+                xb.endArray();
+            }
+            
+            
+            
+            //// Adding TimeX
+            if (timexs.size() > 0) {
+                xb.startArray("Keywords");
+                for (TimeX t: timexs) {
+                    xb.startObject();
+                    xb.field("Beginoffset", t.beginOffset);
+                    xb.field("Endoffset", t.endOffset);
+                    xb.field("Timex", t.timeX);
+                    xb.field("TimeXType", t.timeXType);
+                    xb.field("Timexvalue", t.timexValue);
                     xb.endObject();
                 }
                 xb.endArray();
@@ -353,7 +385,7 @@ public class PSQL2ESBulkIndexing
                 .field("index", "not_analyzed").endObject().endArray().endObject().endObject();*/
         
         XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject().startObject(documentType)
-                .startObject("properties").startObject("content").field("type", "string").field("analyzer", "english")
+                .startObject("properties").startObject("Content").field("type", "string").field("analyzer", "english")
                 .endObject().startObject("Subject").field("type", "string").field("analyzer", "english").endObject()
                 .startObject("Header").field("type", "string").field("analyzer", "english").endObject()
                 .startObject("Origin").field("type", "string").field("index", "not_analyzed").endObject()
@@ -364,11 +396,11 @@ public class PSQL2ESBulkIndexing
                 .field("index", "not_analyzed").endObject().startObject("Tags").field("type", "string")
                 .field("store", "yes").field("index", "not_analyzed").endObject()
                 
-                .startArray("entities").startObject("entId")
-                .field("type", "long").endObject().startObject("entname")
+                .startArray("Entities").startObject("EntId")
+                .field("type", "long").endObject().startObject("Entname")
                 .field("type", "string").field("index", "not_analyzed").endObject()
-                .startObject("entType").field("type", "string").field("index", "not_analyzed")
-                .endObject().startObject("entFrequency").field("type", "long")
+                .startObject("EntType").field("type", "string").field("index", "not_analyzed")
+                .endObject().startObject("EntFrequency").field("type", "long")
                .endObject().endArray()
                 
                 .endObject().endObject();
@@ -397,7 +429,7 @@ public class PSQL2ESBulkIndexing
                 .prepareCreate(indexName);
 
         XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject()
-                .startObject(documentType).startObject("properties").startObject("content")
+                .startObject(documentType).startObject("properties").startObject("Content")
                 .field("type", "string").field("analyzer", "english").endObject()
                 .startObject("Subject").field("type", "string")
                 .field("analyzer", "english").endObject()
@@ -418,12 +450,12 @@ public class PSQL2ESBulkIndexing
                 .field("index", "not_analyzed").endObject().startObject("sender_name")
                 .field("type", "string").field("index", "not_analyzed")
 
-                .startArray("entities").startObject("id")
-                .field("type", "integer").field("index", "not_analyzed").endObject()
-                .startObject("name").field("type", "string").field("index", "not_analyzed")
-                .endObject().startObject("Entitytype").field("type", "string")
-                .field("index", "not_analyzed").endObject().startObject("frequency")
-                .field("type", "integer").field("index", "not_analyzed").endObject().endArray()
+                .startArray("Entities").startObject("EntId")
+                .field("type", "long").endObject().startObject("Entname")
+                .field("type", "string").field("index", "not_analyzed").endObject()
+                .startObject("EntType").field("type", "string").field("index", "not_analyzed")
+                .endObject().startObject("EntFrequency").field("type", "long")
+               .endObject().endArray()
 
                 /*.startArray("relations").startObject("id")
                 .field("type", "integer").field("index", "not_analyzed").endObject()
@@ -475,6 +507,24 @@ public class PSQL2ESBulkIndexing
             this.name = aName;
             this.type = aType;
             this.frequency = aFreq;
+
+        }
+    }
+    
+    static class TimeX
+    {
+    	int beginOffset;
+    	int endOffset;
+    	String timeX;
+    	String timeXType;
+    	String timexValue;
+        public TimeX(int aBeginOffset, int aEndOffset, String aTimeX, String aTimexType, String aTimexValue)
+        {
+        	this.beginOffset = aBeginOffset;
+        	this.endOffset = aEndOffset;
+        	this.timeX = aTimeX;
+        	this.timeXType = aTimexType;
+        	this.timexValue = aTimexValue;
 
         }
     }
