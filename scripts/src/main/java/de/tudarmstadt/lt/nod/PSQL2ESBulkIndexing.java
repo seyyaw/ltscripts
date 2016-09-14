@@ -10,6 +10,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,11 +69,11 @@ public class PSQL2ESBulkIndexing
             logger.error(usage);
             System.exit(1);
         }
-        if (args.length == 3) {
+     /*   if (args.length == 3) {
             logger.error("please provide mapping file ");
             logger.error(usage);
             System.exit(1);
-        }
+        }*/
         try { 
             Integer.parseInt(args[0]); 
         } catch(NumberFormatException e) { 
@@ -160,7 +161,10 @@ public class PSQL2ESBulkIndexing
         while (docSt.next()) {
              List<NamedEntity> namedEntity = new ArrayList<>();
             String content = docSt.getString("content");
-            Date created = docSt.getDate("created");
+            Date dbCreated = docSt.getDate("created");
+            
+            SimpleDateFormat simpleCreated = new SimpleDateFormat("yyyy-MM-dd");
+            String created = simpleCreated.format(dbCreated);
             Integer docId = docSt.getInt("id");
 
             ResultSet docEntSt = conn.createStatement()
@@ -257,8 +261,55 @@ public class PSQL2ESBulkIndexing
                     xb.endObject();
                 }
                 xb.endArray();
-            }
+                
+                /// Index Entities per type
+                xb.startArray("Entitiesper");
+                for (NamedEntity ne : namedEntity) {
+                	if(ne.type.toLowerCase().equals("per")){
+                    xb.startObject();
+                    xb.field("EntId", ne.id);
+                    xb.field("Entname", ne.name);
+                    xb.field("EntFrequency", ne.frequency);
+                    xb.endObject();
+                	}
+                }
+                xb.endArray();
 
+                xb.startArray("Entitiesorg");
+                for (NamedEntity ne : namedEntity) {
+                	if(ne.type.toLowerCase().equals("org")){
+                    xb.startObject();
+                    xb.field("EntId", ne.id);
+                    xb.field("Entname", ne.name);
+                    xb.field("EntFrequency", ne.frequency);
+                    xb.endObject();
+                	}
+                }
+                xb.endArray();
+
+                xb.startArray("Entitiesloc");
+                for (NamedEntity ne : namedEntity) {
+                	if(ne.type.toLowerCase().equals("loc")){
+                    xb.startObject();
+                    xb.field("EntId", ne.id);
+                    xb.field("Entname", ne.name);
+                    xb.field("EntFrequency", ne.frequency);
+                    xb.endObject();
+                	}
+                }
+                xb.endArray();
+                xb.startArray("Entitiesmisc");
+                for (NamedEntity ne : namedEntity) {
+                	if(ne.type.toLowerCase().equals("misc")){
+                    xb.startObject();
+                    xb.field("EntId", ne.id);
+                    xb.field("Entname", ne.name);
+                    xb.field("EntFrequency", ne.frequency);
+                    xb.endObject();
+                	}
+                }
+                xb.endArray();
+            }
             
             //// Adding terms
             if (termMap.size() > 0) {
