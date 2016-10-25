@@ -97,7 +97,7 @@
 		<dependency>
 			<groupId>com.github.heideltime</groupId>
 			<artifactId>heideltime</artifactId>
-			<version>2.3.1</version>
+			<version>2.3.3</version>
 		</dependency>
 		<!-- keyword extraction -->
 		<dependency>
@@ -111,6 +111,25 @@
 			<artifactId>opencsv</artifactId>
 			<version>3.7</version>
 		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-csv -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-csv</artifactId>
+			<version>1.4</version>
+		</dependency>
+
+
+		<dependency>
+			<groupId>com.optimaize.languagedetector</groupId>
+			<artifactId>language-detector</artifactId>
+			<version>0.6</version>
+		</dependency>
+
+		<!-- <dependency> <groupId>org.apache.lucene</groupId> <artifactId>lucene-core</artifactId> 
+			<version>6.1.0</version> </dependency> <dependency> <groupId>org.apache.lucene</groupId> 
+			<artifactId>lucene-analyzers-common</artifactId> <version>6.1.0</version> 
+			</dependency> -->
 
 	</dependencies>
 	<build>
@@ -133,7 +152,7 @@
 						<manifest>
 							<addClasspath>true</addClasspath>
 							<!-- <mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass> -->
-							<mainClass>de.tudarmstadt.lt.nod.HeidelTiming</mainClass>
+							<mainClass>de.tudarmstadt.lt.nod.HeidelTimingFromDocument</mainClass>
 
 						</manifest>
 					</archive>
@@ -148,7 +167,7 @@
 					<archive>
 						<manifest>
 							<!-- <mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass> -->
-							<mainClass>de.tudarmstadt.lt.nod.HeidelTiming</mainClass>
+							<mainClass>de.tudarmstadt.lt.nod.HeidelTimingFromDocument</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
