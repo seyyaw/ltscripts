@@ -13,8 +13,10 @@ import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -39,10 +41,10 @@ import static org.elasticsearch.node.NodeBuilder.*;
 import com.google.gson.stream.JsonWriter;
 
 
-public class PSQL2ESBulkIndexing {
+public class PSQL2ESBulkIndexingWithSimpleTimex {
 	private static Connection conn;
 	private static Statement st;
-	static Logger logger = Logger.getLogger(PSQL2ESBulkIndexing.class.getName());
+	static Logger logger = Logger.getLogger(PSQL2ESBulkIndexingWithSimpleTimex.class.getName());
 
 	public static void main(String[] args) throws Exception {
 		String usage = "Run as: java -jar dbnameid (1 0r 2 0r 3)  elasticsearch.yml psqldbAddress";
@@ -199,11 +201,14 @@ public class PSQL2ESBulkIndexing {
 					.executeQuery("select * from eventtime where  docid = " + docId + ";");
 
 			List<TimeX> timexs = new ArrayList<>();
+			Set<String> simpeTimex = new HashSet<>();
 			while (docTimexSt.next()) {
+				String timeXValue = docTimexSt.getString("timexvalue");
 				TimeX t = new TimeX(docTimexSt.getInt("beginoffset"), docTimexSt.getInt("endoffset"),
 						docTimexSt.getString("timex"), docTimexSt.getString("type"),
-						docTimexSt.getString("timexvalue"));
+						timeXValue);
 				timexs.add(t);
+				simpeTimex.add(timeXValue);
 			}
 
 			/*
@@ -333,6 +338,7 @@ public class PSQL2ESBulkIndexing {
 					xb.endObject();
 				}
 				xb.endArray();
+				xb.field("SimpleTimeExpresion", new ArrayList<>(simpeTimex));
 			}
 			/*
 			 * if (rels.size() > 0) { xb.startArray("relations"); for (Long
@@ -386,43 +392,8 @@ public class PSQL2ESBulkIndexing {
 			delIdx.execute().actionGet();
 		}
 
-		CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices().prepareCreate(indexName);
-
-		/*
-		 * XContentBuilder mappingBuilder =
-		 * XContentFactory.jsonBuilder().startObject()
-		 * .startObject(documentType).startObject("properties").startObject(
-		 * "content") .field("type", "string").field("analyzer", "english")
-		 * .endObject().startObject("Subject").field("type", "string")
-		 * .field("analyzer", "english").endObject().startObject("Header")
-		 * .field("type", "string").field("analyzer", "english").endObject()
-		 * .startObject("Origin").field("type", "string").field("index",
-		 * "not_analyzed")
-		 * .endObject().startObject("Classification").field("type", "string")
-		 * .field("index",
-		 * "not_analyzed").endObject().startObject("ReferenceId") .field("type",
-		 * "string").field("index", "not_analyzed").endObject()
-		 * .startObject("References").field("type", "string") .field("index",
-		 * "not_analyzed").endObject().startObject("SignedBy") .field("type",
-		 * "string").field("index", "not_analyzed")
-		 * .endObject().startObject("Tags").field("type", "string")
-		 * .field("index", "not_analyzed").endObject()
-		 * 
-		 * .startArray("entities").startObject("id") .field("type",
-		 * "integer").field("index",
-		 * "not_analyzed").endObject().startObject("name") .field("type",
-		 * "string").field("index", "not_analyzed").endObject()
-		 * .startObject("Entitytype").field("type", "string").field("index",
-		 * "not_analyzed") .endObject().startObject("frequency").field("type",
-		 * "integer") .field("index", "not_analyzed").endObject().endArray()
-		 * 
-		 * .startArray("relations").startObject("id") .field("type",
-		 * "integer").field("index", "not_analyzed").endObject()
-		 * .startObject("relation").field("type", "string").field("index",
-		 * "not_analyzed") .endObject().startObject("frequency").field("type",
-		 * "integer") .field("index",
-		 * "not_analyzed").endObject().endArray().endObject().endObject();
-		 */
+		CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices().prepareCreate(indexName);		
+	
 
 		XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject().startObject(documentType)
 				.startObject("properties").startObject("Content").field("type", "string").field("analyzer", "english")

@@ -28,7 +28,7 @@ public class CarsLeakToNewsLeak {
 		Map<String, Integer> entIds = new HashMap<>();
 		try {
 
-			Object obj = parser.parse(new FileReader("/media/seid/DATA/LT/DIVID-DJ/cars/cars.json"));
+			Object obj = parser.parse(new FileReader("cars.json"));
 
 			JSONObject jsonObject = (JSONObject) obj;
 			JSONObject hitsObject = (JSONObject) jsonObject.get("hits");
@@ -42,7 +42,6 @@ public class CarsLeakToNewsLeak {
 
 				String lang = (String) main.get("Language");
 
-				if (lang.equals("de")) {
 
 					JSONObject file = (JSONObject) source.get("File");
 					String created = (String) file.get("created");
@@ -71,7 +70,6 @@ public class CarsLeakToNewsLeak {
 							writeEntities(entIds, miscIt.next().toString(), "MISC", docId, entity);
 						}
 					docId++;
-				}
 			}
 			writer.close();
 			/*

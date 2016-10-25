@@ -1,0 +1,8 @@
+1. HeidelTime
+	Make sure you have the modified heideltime package (may be commit the branch)
+	build both heildetime and scripts
+	mvn -Drat.skip=true clean install
+2. PSQL to Elastic search
+	export using eclipse project
+	
+	

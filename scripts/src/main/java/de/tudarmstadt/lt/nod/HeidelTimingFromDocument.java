@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -22,6 +23,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
@@ -35,16 +38,15 @@ import de.unihd.dbs.heideltime.standalone.OutputType;
 import de.unihd.dbs.heideltime.standalone.POSTagger;
 import de.unihd.dbs.uima.annotator.heideltime.resources.Language;
 
-public class HeidelTiming {
-	private static Connection conn;
-	private static Statement st;
+@SuppressWarnings("unused")
+public class HeidelTimingFromDocument {
 
 	public static void main(String[] arg) throws ParseException, InstantiationException, IllegalAccessException,
 			ClassNotFoundException, SQLException, IOException {
 		Language language;
-		if (arg.length < 6) { // default English
+		if (arg.length < 3) { // default English
 			language = Language.ENGLISH;
-		} else if (arg[5].equals("de")) {
+		} else if (arg[2].equals("de")) {
 			language = Language.GERMAN;
 		} else { // default English
 			language = Language.ENGLISH;
@@ -78,17 +80,16 @@ public class HeidelTiming {
 		// display help dialog if HELP-switch is given
 		if (CLISwitch.HELP.getIsActive()) {
 			printHelp();
-			System.exit(0);
+			System.exit(1);
 		}
 		long startTime = System.currentTimeMillis();
-		if (arg.length < 5) {
-			System.out.println("USAGE: run it as java -jar arg1 arg2 arg3 arg4 arg5 \n"
-					+ "Where arg1 is the database name (it should be Postgres database), arg2 is the database location,arg3 is the database username\n"
-					+ ", agr4 is the database password, and arg5 is the number of threades to run this progrem");
+		if (!new File(arg[0]).exists()) {
+			System.out.println("USAGE: run it as java -jar document where document i"
+					+ "s a CSV file of format ID, Content, CreateionDAte ");
+			System.exit(1);
 		}
-		initDB(arg[0], arg[1], arg[2], arg[3]);
-		st.setFetchSize(50);
-		ResultSet docSt = st.executeQuery("select * from document;");
+
+		Iterable<CSVRecord> records = CSVFormat.RFC4180.parse(new FileReader(new File(arg[0])));
 
 		ThreadLocal<FileOutputStream> os = ThreadLocal.withInitial(new Supplier<FileOutputStream>() {
 			@Override
@@ -129,13 +130,14 @@ public class HeidelTiming {
 		ThreadLocal<HeidelTimeStandalone> standalone = ThreadLocal.withInitial(
 				() -> new HeidelTimeStandalone(language, type, outputType, null, posTagger, doIntervalTagging));
 
-		ExecutorService t = Executors.newFixedThreadPool(Integer.valueOf(arg[4]));
+		ExecutorService t = Executors.newFixedThreadPool(Integer.valueOf(arg[1]));
 
-		while (docSt.next()) {
+		for (CSVRecord record : records) {
 
-			String content = docSt.getString("content");
-			Date created = docSt.getDate("created");
-			Long id = docSt.getLong("id");
+			int id = Integer.valueOf(record.get(0));
+			String content = record.get(1);
+			String created = record.get(2);
+
 			t.execute(new Runnable() {
 				@Override
 				public void run() {
@@ -190,7 +192,6 @@ public class HeidelTiming {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		conn.close();
 		long endTime = System.currentTimeMillis();
 		long totalTime = endTime - startTime;
 		System.out.println("Total time in second to extract timex= " + (double) totalTime / 1000);
@@ -348,16 +349,4 @@ public class HeidelTiming {
 		}
 	}
 
-	public static void initDB(String aDbName, String ip, String user, String pswd)
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
-		String url = "jdbc:postgresql://" + ip + "/";
-		String dbName = aDbName;
-		String driver = "org.postgresql.Driver";
-		String userName = user;
-		String password = pswd;
-		Class.forName(driver).newInstance();
-		conn = DriverManager.getConnection(url + dbName, userName, password);
-		conn.setAutoCommit(false);
-		st = conn.createStatement();
-	}
 }
