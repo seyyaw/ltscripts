@@ -1,8 +1,10 @@
 package de.tudarmstadt.lt.nod;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.Date;
@@ -16,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -40,53 +43,28 @@ import static org.elasticsearch.node.NodeBuilder.*;
 
 import com.google.gson.stream.JsonWriter;
 
-
 public class PSQL2ESBulkIndexingWithSimpleTimex {
 	private static Connection conn;
 	private static Statement st;
 	static Logger logger = Logger.getLogger(PSQL2ESBulkIndexingWithSimpleTimex.class.getName());
 
+	static String dbName;
+	static String dbUser;
+	static String dbPass;
+	static String dbUrl;
+	static String indexName;
+
 	public static void main(String[] args) throws Exception {
-		String usage = "Run as: java -jar dbnameid (1 0r 2 0r 3)  elasticsearch.yml psqldbAddress";
-		if (args.length == 0) {
-			logger.error("please provide dbname name");
-			logger.error(usage);
-			System.exit(1);
-		}
-		/*
-		 * if (args.length == 1) { logger.error("please provide index name ");
-		 * logger.error(usage); System.exit(1); }
-		 */
-		if (args.length == 1) {
-			logger.error("please provide elasticsearch.yml file ");
-			logger.error(usage);
-			System.exit(1);
-		}
-		if (args.length == 2) {
-			logger.error("please provide ip address of the psql server ");
-			logger.error(usage);
-			System.exit(1);
-		}
-		/*
-		 * if (args.length == 3) { logger.error("please provide mapping file ");
-		 * logger.error(usage); System.exit(1); }
-		 */
-		try {
-			Integer.parseInt(args[0]);
-		} catch (NumberFormatException e) {
-			logger.error("The first argument shopuld be a number 1 for cable or 2 for enron or 3 for cars dataset");
-			System.exit(1);
-		}
-		initDB(Integer.parseInt(args[0]), args[2], "newsreader", "newsreader");
+		getConfigs("newsleak.properties");
+		initDB(dbName, dbUrl, dbUser, dbPass);
 		st.setFetchSize(50);
-		Path path = new File(args[1]).toPath();
+		Path path = new File("elasticsearch.yml").toPath();
 		Settings settings = settingsBuilder().loadFromPath(path).build();
 
 		Node node = nodeBuilder().settings(settings).node();
 		Client client = node.client();
 		// document2Json();
-		documenIndexer(client, Integer.valueOf(args[0]),
-				"document"/* , args[3] */);
+		documenIndexer(client, indexName, "document"/* , args[3] */);
 	}
 
 	private static void document2Json() {
@@ -114,47 +92,29 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 		}
 	}
 
-	private static void documenIndexer(Client client, int index,
+	private static void documenIndexer(Client client, String indexName,
 			String documentType/* , String mappingFile */) throws Exception {
-		String indexName = null;
 		try {
-			if (index == 1) {
-				indexName = "cable";
-				boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet().isExists();
-				if (!exists) {
-					System.out.println("Index " + indexName + " will be created.");
-					// createIndex(indexName, client);
-					createcableIndex(client, indexName,
-							documentType/* , mappingFile */);
+			boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet().isExists();
+			if (!exists) {
+				System.out.println("Index " + indexName + " will be created.");
 
-					System.out.println("Index " + indexName + " is created.");
-				}
-			} else if (index == 2) {
-				indexName = "enron";
-				boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet().isExists();
-				if (!exists) {
-					System.out.println("Index " + indexName + " will be created.");
-					// createIndex(indexName, client);
-					createEnronIndex(client, indexName, documentType);
+				createDynamicIndex(client, indexName, documentType);
+				// createIndex(indexName, client);
+				/*
+				 * createcableIndex(client, indexName, documentType ,
+				 * mappingFile );
+				 */
 
-					System.out.println("Index " + indexName + " is created.");
-				}
-			} else {
-				indexName = "cars";
-				boolean exists = client.admin().indices().prepareExists(indexName).execute().actionGet().isExists();
-				if (!exists) {
-					System.out.println("Index " + indexName + " will be created.");
-					// createIndex(indexName, client);
-					createEnronIndex(client, indexName, documentType);
-
-					System.out.println("Index " + indexName + " is created.");
-				}
+				System.out.println("Index " + indexName + " is created.");
 			}
 		} catch (Exception e) {
 			// starnange error
+			System.out.println(e);
 			logger.error(e.getMessage());
 		}
 
+		System.out.println("Start indexing");
 		ResultSet docSt = st.executeQuery("select * from document;");
 		BulkRequestBuilder bulkRequest = client.prepareBulk();
 		int bblen = 0;
@@ -162,7 +122,7 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 		while (docSt.next()) {
 			List<NamedEntity> namedEntity = new ArrayList<>();
 			String content = docSt.getString("content");
-		//	content  = content.substring(0,content.length()/10);
+			// content = content.substring(0,content.length()/10);
 			Date dbCreated = docSt.getDate("created");
 
 			SimpleDateFormat simpleCreated = new SimpleDateFormat("yyyy-MM-dd");
@@ -205,26 +165,10 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 			while (docTimexSt.next()) {
 				String timeXValue = docTimexSt.getString("timexvalue");
 				TimeX t = new TimeX(docTimexSt.getInt("beginoffset"), docTimexSt.getInt("endoffset"),
-						docTimexSt.getString("timex"), docTimexSt.getString("type"),
-						timeXValue);
+						docTimexSt.getString("timex"), docTimexSt.getString("type"), timeXValue);
 				timexs.add(t);
 				simpeTimex.add(timeXValue);
 			}
-
-			/*
-			 * ResultSet docRelSt = conn.createStatement().executeQuery(
-			 * "select * from documentrelationship where  docid = " + docId +
-			 * ";"); Map<Long, String> rels = new HashMap<>(); Map<Long,
-			 * Integer> relIds = new HashMap<>(); while (docRelSt.next()) { long
-			 * relId = docRelSt.getLong("relid"); ResultSet relSt =
-			 * conn.createStatement()
-			 * .executeQuery("select * from relationship where  id = " + relId +
-			 * ";"); if (relSt.next()) { rels.put(relId,
-			 * relSt.getLong("entity1") + ":" + relSt.getLong("entity2"));
-			 * relIds.put(relId, docRelSt.getInt("frequency")); }
-			 * 
-			 * }
-			 */
 
 			ResultSet metadataSt = conn.createStatement()
 					.executeQuery("select * from metadata where docid =" + docId + ";");
@@ -350,6 +294,7 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 			metadataSt.close();
 			bulkRequest.add(client.prepareIndex(indexName, documentType, docId.toString()).setSource(xb));
 			bblen++;
+			System.out.println(bblen);
 			if (bblen % 3 == 0) {
 				logger.info("##### " + bblen + " documents are indexed.");
 				BulkResponse bulkResponse = bulkRequest.execute().actionGet();
@@ -380,8 +325,116 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 		}
 	}
 
+	public static void createDynamicIndex(Client client, String indexName,
+			String documentType/* , String mapping */) throws IOException, SQLException {
+
+		IndicesExistsResponse res = client.admin().indices().prepareExists(indexName).execute().actionGet();
+		if (res.isExists()) {
+			DeleteIndexRequestBuilder delIdx = client.admin().indices().prepareDelete(indexName);
+			delIdx.execute().actionGet();
+		}
+
+		CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices().prepareCreate(indexName);
+
+		XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject().startObject(documentType)
+				.startObject("properties");
+		mappingBuilder.startObject("Content").field("type", "string").field("analyzer", "english").endObject();
+
+		mappingBuilder.startObject("Created").field("type", "date").field("format", "yyyy-MM-dd").
+
+				startObject("fields").startObject("raw").field("type", "date").field("format", "yyyy-MM-dd").endObject()
+				.endObject().endObject();
+
+
+		createEntitesPerTypeMappings(mappingBuilder, "Entities");
+
+		createEntitesPerTypeMappings(mappingBuilder, "Entitiesloc");
+
+		createEntitesPerTypeMappings(mappingBuilder, "Entitiesmisc");
+
+		createEntitesPerTypeMappings(mappingBuilder, "Entitiesorg");
+
+		createEntitesPerTypeMappings(mappingBuilder, "Entitiesper");
+
+		createEventTimeMappings(mappingBuilder);
+		createSimpleTimexMappings(mappingBuilder);
+
+		ResultSet docSt = st.executeQuery("select * from document;");
+		Map<String, String> metaFields = new HashMap<>();
+		while (docSt.next()) {
+			Integer docId = docSt.getInt("id");
+			ResultSet metadataSt = conn.createStatement()
+					.executeQuery("select * from metadata where docid =" + docId + ";");
+			while (metadataSt.next()) {
+				String key = StringUtils.capitalize(metadataSt.getString("key").replace(".", "_"));
+				String type = metadataSt.getString("type");
+				if (type.toLowerCase().equals("date")) {
+					type = "date";
+				} else if (type.toLowerCase().equals("number") || type.toLowerCase().startsWith("int")) {
+					type = "long";
+				} else {
+					type = "string";
+				}
+				metaFields.put(key, type);
+			}
+		}
+
+		for (String meta : metaFields.keySet()) {
+			createMetadataMappings(mappingBuilder, meta, metaFields.get(meta));
+		}
+		mappingBuilder.endObject().endObject().endObject();
+		
+		System.out.println(mappingBuilder.string());
+		createIndexRequestBuilder.addMapping(documentType, mappingBuilder);
+
+		createIndexRequestBuilder.execute().actionGet();
+	}
 	// Based on this so:
 	// http://stackoverflow.com/questions/22071198/adding-mapping-to-a-type-from-java-how-do-i-do-it
+
+	private static void createEntitesPerTypeMappings(XContentBuilder mappingBuilder, String neType) throws IOException {
+		mappingBuilder.startObject(neType);
+		mappingBuilder.startObject("properties");
+		mappingBuilder.startObject("EntId").field("type", "long").endObject();
+		mappingBuilder.startObject("Entname").field("type", "string").field("analyzer", "english").startObject("fields")
+				.startObject("raw").field("type", "string").field("index", "not_analyzed").endObject().endObject()
+				.endObject();
+		mappingBuilder.startObject("EntType").field("type", "string").field("analyzer", "english").startObject("fields")
+				.startObject("raw").field("type", "string").field("index", "not_analyzed").endObject().endObject()
+				.endObject();
+		mappingBuilder.startObject("EntFrequency").field("type", "long").endObject().endObject().endObject();
+	}
+
+	private static void createEventTimeMappings(XContentBuilder mappingBuilder) throws IOException {
+		mappingBuilder.startObject("EventTimes");	
+		mappingBuilder.startObject("properties");
+		mappingBuilder.startObject("Beginoffset").field("type", "long").endObject()
+				.startObject("Endoffset").field("type", "long").endObject();
+		mappingBuilder.startObject("TimeXType").field("type", "string").field("analyzer", "english")
+				.startObject("fields").startObject("raw").field("type", "string").field("index", "not_analyzed")
+				.endObject().endObject().endObject();
+		mappingBuilder.startObject("Timex").field("type", "string").field("analyzer", "english").startObject("fields")
+				.startObject("raw").field("type", "string").field("index", "not_analyzed").endObject().endObject()
+				.endObject();
+		mappingBuilder.startObject("Timexvalue").field("type", "string").field("analyzer", "english")
+				.startObject("fields").startObject("raw").field("type", "string").field("index", "not_analyzed")
+				.endObject().endObject().endObject().endObject().endObject();
+	}
+
+	private static void createSimpleTimexMappings(XContentBuilder mappingBuilder) throws IOException {
+		mappingBuilder.startObject("SimpleTimeExpresion").field("type", "date")
+				.field("format", "yyyy-MM-dd || yyyy || yyyy-MM").startObject("fields").startObject("raw")
+				.field("type", "date").field("format", "yyyy-MM-dd || yyyy || yyyy-MM").endObject().endObject()
+				.endObject();
+
+	}
+
+	private static void createMetadataMappings(XContentBuilder mappingBuilder, String meta, String type)
+			throws IOException {
+		mappingBuilder.startObject(meta).field("type", type).startObject("fields").startObject("raw")
+				.field("type", type).field("index", "not_analyzed").endObject().endObject().endObject();
+
+	}
 
 	public static void createcableIndex(Client client, String indexName,
 			String documentType/* , String mapping */) throws IOException {
@@ -392,8 +445,7 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 			delIdx.execute().actionGet();
 		}
 
-		CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices().prepareCreate(indexName);		
-	
+		CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices().prepareCreate(indexName);
 
 		XContentBuilder mappingBuilder = XContentFactory.jsonBuilder().startObject().startObject(documentType)
 				.startObject("properties").startObject("Content").field("type", "string").field("analyzer", "english")
@@ -476,16 +528,8 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 		}
 	}
 
-	static void initDB(int index, String ip, String user, String pswd)
+	static void initDB(String dbName, String ip, String user, String pswd)
 			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
-		String dbName;
-		if (index == 1) {
-			dbName = "cable";
-		} else if (index == 2) {
-			dbName = "enron";
-		} else {
-			dbName = "cars";
-		}
 
 		String url = "jdbc:postgresql://" + ip + "/";
 		String driver = "org.postgresql.Driver";
@@ -527,5 +571,29 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 			this.timexValue = aTimexValue;
 
 		}
+	}
+
+	static void getConfigs(String config) throws IOException {
+		Properties prop = new Properties();
+		InputStream input = null;
+
+		input = new FileInputStream(config);
+
+		prop.load(input);
+
+		dbName = prop.getProperty("dbname");
+		dbUser = prop.getProperty("dbuser");
+		dbUrl = prop.getProperty("dbaddress");
+		dbPass = prop.getProperty("dbpass");
+		indexName = prop.getProperty("indexname");
+
+		if (input != null) {
+			try {
+				input.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
 	}
 }
