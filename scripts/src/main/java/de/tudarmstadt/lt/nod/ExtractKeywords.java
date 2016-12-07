@@ -28,7 +28,7 @@ public class ExtractKeywords {
 		Configuration.setSingleStrength(1);
 		Configuration.setNoLimitStrength(1);
 		Configuration.setModelFileLocation("model/default/english-lexicon.txt");
-		initDB("cable", "", "", "");
+		initDB("cars", "localhost", "newsreader", "newsreader");
 		st.setFetchSize(50);
 		ResultSet docSt = st.executeQuery("select * from document;");
 

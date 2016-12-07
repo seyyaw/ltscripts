@@ -206,21 +206,6 @@ public class PSQL2ESBulkIndexing {
 				timexs.add(t);
 			}
 
-			/*
-			 * ResultSet docRelSt = conn.createStatement().executeQuery(
-			 * "select * from documentrelationship where  docid = " + docId +
-			 * ";"); Map<Long, String> rels = new HashMap<>(); Map<Long,
-			 * Integer> relIds = new HashMap<>(); while (docRelSt.next()) { long
-			 * relId = docRelSt.getLong("relid"); ResultSet relSt =
-			 * conn.createStatement()
-			 * .executeQuery("select * from relationship where  id = " + relId +
-			 * ";"); if (relSt.next()) { rels.put(relId,
-			 * relSt.getLong("entity1") + ":" + relSt.getLong("entity2"));
-			 * relIds.put(relId, docRelSt.getInt("frequency")); }
-			 * 
-			 * }
-			 */
-
 			ResultSet metadataSt = conn.createStatement()
 					.executeQuery("select * from metadata where docid =" + docId + ";");
 

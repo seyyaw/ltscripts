@@ -41,12 +41,16 @@ import de.unihd.dbs.uima.annotator.heideltime.resources.Language;
 @SuppressWarnings("unused")
 public class HeidelTimingFromDocument {
 
+	static String lang;
+	static String documentName;
+	static int threads;
 	public static void main(String[] arg) throws ParseException, InstantiationException, IllegalAccessException,
 			ClassNotFoundException, SQLException, IOException {
 		Language language;
-		if (arg.length < 3) { // default English
+		getConfigs("newsleak.properties");
+		if (lang.equals("en")) { // default English
 			language = Language.ENGLISH;
-		} else if (arg[2].equals("de")) {
+		} else if (lang.equals("de")) {
 			language = Language.GERMAN;
 		} else { // default English
 			language = Language.ENGLISH;
@@ -83,13 +87,13 @@ public class HeidelTimingFromDocument {
 			System.exit(1);
 		}
 		long startTime = System.currentTimeMillis();
-		if (!new File(arg[0]).exists()) {
+		if (!new File(documentName).exists()) {
 			System.out.println("USAGE: run it as java -jar document where document i"
 					+ "s a CSV file of format ID, Content, CreateionDAte ");
 			System.exit(1);
 		}
 
-		Iterable<CSVRecord> records = CSVFormat.RFC4180.parse(new FileReader(new File(arg[0])));
+		Iterable<CSVRecord> records = CSVFormat.RFC4180.parse(new FileReader(new File(documentName)));
 
 		ThreadLocal<FileOutputStream> os = ThreadLocal.withInitial(new Supplier<FileOutputStream>() {
 			@Override
@@ -130,7 +134,7 @@ public class HeidelTimingFromDocument {
 		ThreadLocal<HeidelTimeStandalone> standalone = ThreadLocal.withInitial(
 				() -> new HeidelTimeStandalone(language, type, outputType, null, posTagger, doIntervalTagging));
 
-		ExecutorService t = Executors.newFixedThreadPool(Integer.valueOf(arg[1]));
+		ExecutorService t = Executors.newFixedThreadPool(Integer.valueOf(threads));
 
 		for (CSVRecord record : records) {
 
@@ -349,4 +353,27 @@ public class HeidelTimingFromDocument {
 		}
 	}
 
+	
+	static void getConfigs(String config) throws IOException {
+		Properties prop = new Properties();
+		InputStream input = null;
+
+		input = new FileInputStream(config);
+
+		prop.load(input);
+
+
+		lang = prop.getProperty("lang");
+		documentName = prop.getProperty("documentname");
+		threads = Integer.valueOf(prop.getProperty("threads"));
+		
+		if (input != null) {
+			try {
+				input.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+	}
 }

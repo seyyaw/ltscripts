@@ -121,7 +121,7 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 
 		while (docSt.next()) {
 			List<NamedEntity> namedEntity = new ArrayList<>();
-			String content = docSt.getString("content");
+			String content = docSt.getString("content").replace("\r", "");
 			// content = content.substring(0,content.length()/10);
 			Date dbCreated = docSt.getDate("created");
 
@@ -294,14 +294,15 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 			metadataSt.close();
 			bulkRequest.add(client.prepareIndex(indexName, documentType, docId.toString()).setSource(xb));
 			bblen++;
-			System.out.println(bblen);
-			if (bblen % 3 == 0) {
+			
+			if (bblen % 50 == 0) {
 				logger.info("##### " + bblen + " documents are indexed.");
 				BulkResponse bulkResponse = bulkRequest.execute().actionGet();
 				if (bulkResponse.hasFailures()) {
 					logger.error("##### Bulk Request failure with error: " + bulkResponse.buildFailureMessage());
 				}
 				bulkRequest = client.prepareBulk();
+				System.out.println(bblen);
 			}
 		}
 		docSt.close();
@@ -355,6 +356,8 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 		createEntitesPerTypeMappings(mappingBuilder, "Entitiesorg");
 
 		createEntitesPerTypeMappings(mappingBuilder, "Entitiesper");
+		
+		createKeywordsMappings(mappingBuilder);
 
 		createEventTimeMappings(mappingBuilder);
 		createSimpleTimexMappings(mappingBuilder);
@@ -420,6 +423,20 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 				.startObject("fields").startObject("raw").field("type", "string").field("index", "not_analyzed")
 				.endObject().endObject().endObject().endObject().endObject();
 	}
+	
+	
+	
+	private static void createKeywordsMappings(XContentBuilder mappingBuilder) throws IOException {
+		mappingBuilder.startObject("Keywords");	
+		mappingBuilder.startObject("properties");
+		mappingBuilder.startObject("Keyword").field("type", "String").field("analyzer", "english")
+				.startObject("fields").startObject("raw").field("type", "string").field("index", "not_analyzed")
+				.endObject().endObject().endObject();
+		mappingBuilder.startObject("TermFrequency").field("type", "long").endObject().endObject().endObject();
+	}
+	
+	
+	
 
 	private static void createSimpleTimexMappings(XContentBuilder mappingBuilder) throws IOException {
 		mappingBuilder.startObject("SimpleTimeExpresion").field("type", "date")
