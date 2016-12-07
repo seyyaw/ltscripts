@@ -3,7 +3,6 @@ package scripts;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
-import org.apache.commons.lang.StringUtils;
 
 public class PatternTest {
 

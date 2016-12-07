@@ -55,7 +55,7 @@ public class HeidelTimingFromDocument {
 		} else { // default English
 			language = Language.ENGLISH;
 		}
-		String[] args = new String[] { "-c", "config.props", "-t", "news", "-o", "newsleak" };
+		String[] args = new String[] { "-c", "newsleak.properties", "-t", "news", "-o", "newsleak" };
 		// FileOutputStream os = new FileOutputStream("heideltime.tsv");
 		for (int i = 0; i < args.length; i++) {
 			if (args[i].startsWith("-")) {
@@ -366,7 +366,6 @@ public class HeidelTimingFromDocument {
 		lang = prop.getProperty("lang");
 		documentName = prop.getProperty("documentname");
 		threads = Integer.valueOf(prop.getProperty("threads"));
-		
 		if (input != null) {
 			try {
 				input.close();
