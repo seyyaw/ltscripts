@@ -18,7 +18,7 @@ import org.apache.commons.io.LineIterator;
 import org.postgresql.PGConnection;
 import org.postgresql.copy.CopyManager;
 
-public class PSQLCopy {
+public class PSQLDBImport {
 
 	private static Connection conn;
 	private static Connection rootcnn;
@@ -58,14 +58,14 @@ public class PSQLCopy {
 		File document = new File("document.csv");
 		File metadata = new File("metadata.csv");
 
-		File entity = new File("cooc_entities/part-00000");
-		File documententity = new File("cooc_doc_entities/part-00000");
+		File entity = new File("out/entity.tsv");
+		File documententity = new File("out/docEntity.tsv");
 		// File relationship = new File("cooc_relationships/part-00000");
 		// File documentrelationship = new
 		// File("cooc_doc_relationships/part-00000");
-		File entityoffset = new File("coocdoc_entity_offset/part-00000");
+		File entityoffset = new File("out/entDocOffsets.tsv");
 
-		//File evventtime = new File("result/heideltimex_date.tsv");
+		File evventtime = new File("result/heideltimex_date.tsv");
 
 		CopyManager cpManager = ((PGConnection) conn).getCopyAPI();
 		// ======Documwents and Metadata copying ====
@@ -95,7 +95,7 @@ public class PSQLCopy {
 		// ======Event Expression ====
 		System.out.println("Importing Event expresions");
 		st.executeUpdate("TRUNCATE TABLE eventtime;");
-	//	cpManager.copyIn("COPY eventtime FROM STDIN with delimiter E'\t'", new FileReader(evventtime));
+		cpManager.copyIn("COPY eventtime FROM STDIN with delimiter E'\t'", new FileReader(evventtime));
 
 		// We do not need \r in the document
 		String removeCR = "UPDATE document SET content = regexp_replace(content, E'\\r', '', 'g' );" ;

@@ -97,7 +97,7 @@
 		<dependency>
 			<groupId>com.github.heideltime</groupId>
 			<artifactId>heideltime</artifactId>
-			<version>2.3.3</version>
+			<version>2.2.1</version>
 		</dependency>
 		<!-- keyword extraction -->
 
@@ -121,6 +121,11 @@
 			<artifactId>lucene-analyzers-common</artifactId> <version>6.1.0</version> 
 			</dependency> -->
 
+		<dependency>
+			<groupId>de.tudarmstadt.lt</groupId>
+			<artifactId>de.tu-darmstadt.lt.ner</artifactId>
+			<version>0.2.0-SNAPSHOT</version>
+		</dependency>
 	</dependencies>
 	<build>
 		<defaultGoal>install</defaultGoal>
@@ -142,7 +147,7 @@
 						<manifest>
 							<addClasspath>true</addClasspath>
 							<!-- <mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass> -->
-							<mainClass>de.tudarmstadt.lt.nod.HeidelTimingFromDocument</mainClass>
+							<mainClass>de.tudarmstadt.lt.nod.NewsleakProcessor</mainClass>
 
 						</manifest>
 					</archive>
@@ -156,8 +161,8 @@
 					</descriptorRefs>
 					<archive>
 						<manifest>
-							<!-- <mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing</mainClass> -->
-							<mainClass>de.tudarmstadt.lt.nod.HeidelTimingFromDocument</mainClass>
+							<!-- <mainClass>de.tudarmstadt.lt.nod.PSQL2ESBulkIndexing   HeidelTimingFromDocument</mainClass> -->
+							<mainClass>de.tudarmstadt.lt.nod.NewsleakProcessor</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
