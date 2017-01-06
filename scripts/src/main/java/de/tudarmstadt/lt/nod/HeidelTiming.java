@@ -25,7 +25,6 @@ import java.util.function.Supplier;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
-import org.elasticsearch.gateway.AsyncShardFetch.List;
 
 import de.unihd.dbs.heideltime.standalone.CLISwitch;
 import de.unihd.dbs.heideltime.standalone.Config;

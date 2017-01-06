@@ -130,14 +130,14 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 			Integer docId = docSt.getInt("id");
 
 			ResultSet docEntSt = conn.createStatement()
-					.executeQuery("select * from documententity where  docid = " + docId + ";");
+					.executeQuery("select * from entityoffset where  docid = " + docId + ";");
 			while (docEntSt.next()) {
-				long entId = docEntSt.getLong("entityid");
+				long entId = docEntSt.getLong("entid");
 				ResultSet entSt = conn.createStatement()
 						.executeQuery("select * from entity where  id = " + entId + ";");
 				if (entSt.next()) {
 					NamedEntity ne = new NamedEntity(entSt.getLong("id"), entSt.getString("name"),
-							entSt.getString("type"), docEntSt.getInt("frequency"));
+							entSt.getString("type"), 1 /*docEntSt.getInt("frequency")*/);
 					namedEntity.add(ne);
 				}
 
@@ -208,53 +208,23 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 				}
 				xb.endArray();
 
-				/// Index Entities per type
-				xb.startArray("Entitiesper");
-				for (NamedEntity ne : namedEntity) {
-					if (ne.type.toLowerCase().equals("per")) {
-						xb.startObject();
-						xb.field("EntId", ne.id);
-						xb.field("Entname", ne.name);
-						xb.field("EntFrequency", ne.frequency);
-						xb.endObject();
+				ResultSet entTypes = conn.createStatement().executeQuery("select distinct type from entity;");
+				while (entTypes.next()) {
+					String type = entTypes.getString("type").toLowerCase();				
+					xb.startArray("Entities"+type);
+					for (NamedEntity ne : namedEntity) {
+						if (ne.type.toLowerCase().equals(type)) {
+							xb.startObject();
+							xb.field("EntId", ne.id);
+							xb.field("Entname", ne.name);
+							xb.field("EntFrequency", ne.frequency);
+							xb.endObject();
+						}
 					}
+					xb.endArray();
 				}
-				xb.endArray();
 
-				xb.startArray("Entitiesorg");
-				for (NamedEntity ne : namedEntity) {
-					if (ne.type.toLowerCase().equals("org")) {
-						xb.startObject();
-						xb.field("EntId", ne.id);
-						xb.field("Entname", ne.name);
-						xb.field("EntFrequency", ne.frequency);
-						xb.endObject();
-					}
-				}
-				xb.endArray();
-
-				xb.startArray("Entitiesloc");
-				for (NamedEntity ne : namedEntity) {
-					if (ne.type.toLowerCase().equals("loc")) {
-						xb.startObject();
-						xb.field("EntId", ne.id);
-						xb.field("Entname", ne.name);
-						xb.field("EntFrequency", ne.frequency);
-						xb.endObject();
-					}
-				}
-				xb.endArray();
-				xb.startArray("Entitiesmisc");
-				for (NamedEntity ne : namedEntity) {
-					if (ne.type.toLowerCase().equals("misc")) {
-						xb.startObject();
-						xb.field("EntId", ne.id);
-						xb.field("Entname", ne.name);
-						xb.field("EntFrequency", ne.frequency);
-						xb.endObject();
-					}
-				}
-				xb.endArray();
+		
 			}
 
 			//// Adding terms
@@ -302,7 +272,6 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 					logger.error("##### Bulk Request failure with error: " + bulkResponse.buildFailureMessage());
 				}
 				bulkRequest = client.prepareBulk();
-				System.out.println(bblen);
 			}
 		}
 		docSt.close();
@@ -349,20 +318,25 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 
 		createEntitesPerTypeMappings(mappingBuilder, "Entities");
 
-		createEntitesPerTypeMappings(mappingBuilder, "Entitiesloc");
+		ResultSet entTypes = conn.createStatement().executeQuery("select distinct type from entity;");
+		while (entTypes.next()) {
+			String type = entTypes.getString("type").toLowerCase();
+			createEntitesPerTypeMappings(mappingBuilder, "Entities"+type);
+		}
+		/*createEntitesPerTypeMappings(mappingBuilder, "Entitiesloc");
 
 		createEntitesPerTypeMappings(mappingBuilder, "Entitiesmisc");
 
 		createEntitesPerTypeMappings(mappingBuilder, "Entitiesorg");
 
-		createEntitesPerTypeMappings(mappingBuilder, "Entitiesper");
+		createEntitesPerTypeMappings(mappingBuilder, "Entitiesper");*/
 		
 		createKeywordsMappings(mappingBuilder);
 
 		createEventTimeMappings(mappingBuilder);
 		createSimpleTimexMappings(mappingBuilder);
 
-		ResultSet docSt = st.executeQuery("select * from document;");
+		ResultSet docSt = conn.createStatement().executeQuery("select * from document;");
 		Map<String, String> metaFields = new HashMap<>();
 		while (docSt.next()) {
 			Integer docId = docSt.getInt("id");
@@ -396,6 +370,8 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 	// http://stackoverflow.com/questions/22071198/adding-mapping-to-a-type-from-java-how-do-i-do-it
 
 	private static void createEntitesPerTypeMappings(XContentBuilder mappingBuilder, String neType) throws IOException {
+		
+		//mappingBuilder.startObject(neType).field("type", "nested");
 		mappingBuilder.startObject(neType);
 		mappingBuilder.startObject("properties");
 		mappingBuilder.startObject("EntId").field("type", "long").endObject();

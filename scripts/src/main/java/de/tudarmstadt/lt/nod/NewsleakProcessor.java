@@ -70,7 +70,7 @@ public class NewsleakProcessor {
 		System.out.println("===================================");
 		System.out.println("= Extracting Named Entities =");
 		System.out.println("===================================");
-		GermaNERMain.main(("-t " + documentName + " -o out").split(" "));
+		GermaNERMain.main(("-t " + documentName + " -o out -c resources/ner_models/"+lang+"/config.properties").split(" "));
 		System.out.println("====================================");
 		System.out.println("= Extracting Named Entities  done  =");
 		System.out.println("====================================");
