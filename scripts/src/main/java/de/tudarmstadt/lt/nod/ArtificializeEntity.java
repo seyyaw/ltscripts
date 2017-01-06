@@ -13,7 +13,7 @@ public class ArtificializeEntity {
 
 	public static void main(String[] args)
 			throws InstantiationException, IllegalAccessException, ClassNotFoundException, SQLException {
-		initDB("cable", "192.168.164.227:5433", "newsreader", "newsreader");
+		initDB("cable", "localhost:5433", "newsreader", "newsreader");
 		st.setFetchSize(50);
 
 		addArtificialTypes();
