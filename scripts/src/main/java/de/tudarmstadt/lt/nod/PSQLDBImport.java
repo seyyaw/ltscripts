@@ -59,7 +59,7 @@ public class PSQLDBImport {
 		File metadata = new File("metadata.csv");
 
 		File entity = new File("out/entity.tsv");
-		File documententity = new File("out/docEntity.tsv");
+		// File documententity = new File("out/docEntity.tsv");
 		// File relationship = new File("cooc_relationships/part-00000");
 		// File documentrelationship = new
 		// File("cooc_doc_relationships/part-00000");
@@ -84,10 +84,10 @@ public class PSQLDBImport {
 		st.executeUpdate("TRUNCATE TABLE entity;");
 		cpManager.copyIn("COPY entity FROM STDIN with delimiter E'\t'", new FileReader(entity));
 
-		System.out.println("Importing documententities");
+		/*System.out.println("Importing documententities");
 		st.executeUpdate("TRUNCATE TABLE documententity;");
 		cpManager.copyIn("COPY documententity FROM STDIN with delimiter E'\t'", new FileReader(documententity));
-
+*/
 		System.out.println("Importing entityoffsets");
 		st.executeUpdate("TRUNCATE TABLE entityoffset;");
 		cpManager.copyIn("COPY entityoffset FROM STDIN with delimiter E'\t'", new FileReader(entityoffset));

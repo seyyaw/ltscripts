@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
@@ -36,6 +37,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.node.Node;
+import org.springframework.core.env.SystemEnvironmentPropertySource;
 
 import static org.elasticsearch.common.settings.Settings.settingsBuilder;
 
@@ -119,6 +121,11 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 		BulkRequestBuilder bulkRequest = client.prepareBulk();
 		int bblen = 0;
 
+		ResultSet entTypes = conn.createStatement().executeQuery("select distinct type from entity;");
+		Set<String> types = new HashSet<>();
+		while(entTypes.next()){
+			types.add(entTypes.getString("type").toLowerCase());
+		}
 		while (docSt.next()) {
 			List<NamedEntity> namedEntity = new ArrayList<>();
 			String content = docSt.getString("content").replace("\r", "");
@@ -129,33 +136,33 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 			String created = simpleCreated.format(dbCreated);
 			Integer docId = docSt.getInt("id");
 
-			ResultSet docEntSt = conn.createStatement()
-					.executeQuery("select * from entityoffset where  docid = " + docId + ";");
-			while (docEntSt.next()) {
-				long entId = docEntSt.getLong("entid");
-				ResultSet entSt = conn.createStatement()
-						.executeQuery("select * from entity where  id = " + entId + ";");
-				if (entSt.next()) {
-					NamedEntity ne = new NamedEntity(entSt.getLong("id"), entSt.getString("name"),
-							entSt.getString("type"), 1 /*docEntSt.getInt("frequency")*/);
-					namedEntity.add(ne);
-				}
-
-			}
+ 			ResultSet docEntSt = conn.createStatement()
+ 					.executeQuery("select entid from entityoffset where  docid = " + docId + ";");
+ 			while (docEntSt.next()) {
+ 				long entId = docEntSt.getLong("entid");
+ 				ResultSet entSt = conn.createStatement()
+ 						.executeQuery("select * from entity where  id = " + entId + ";");
+ 				if (entSt.next()) {
+ 					NamedEntity ne = new NamedEntity(entSt.getLong("id"), entSt.getString("name"),
+ 							entSt.getString("type"), 1 /*docEntSt.getInt("frequency")*/);
+ 					namedEntity.add(ne);
+ 				}
+ 
+ 			}
 
 			///// Adding important terms to the index - ONLY top 10
 
-			ResultSet docTermSt = conn.createStatement()
-					.executeQuery("select * from terms where  docid = " + docId + " limit 10;");
-
-			Map<String, Integer> termMap = new HashMap<>();
-			while (docTermSt.next()) {
-				String term = docTermSt.getString("term");
-				int freq = docTermSt.getInt("frequency");
-				termMap.put(term, freq);
-			}
-
+ 			ResultSet docTermSt = conn.createStatement()
+ 					.executeQuery("select * from terms where  docid = " + docId + " limit 10;");
+ 
+ 			Map<String, Integer> termMap = new HashMap<>();
+ 			while (docTermSt.next()) {
+ 				String term = docTermSt.getString("term");
+ 				int freq = docTermSt.getInt("frequency");
+ 				termMap.put(term, freq);
+ 			}
 			//// Adding Timex to ES index
+
 
 			ResultSet docTimexSt = conn.createStatement()
 					.executeQuery("select * from eventtime where  docid = " + docId + ";");
@@ -169,9 +176,9 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 				timexs.add(t);
 				simpeTimex.add(timeXValue);
 			}
-
+	
 			ResultSet metadataSt = conn.createStatement()
-					.executeQuery("select * from metadata where docid =" + docId + ";");
+  					.executeQuery("select * from metadata where docid =" + docId + ";");
 
 			XContentBuilder xb = XContentFactory.jsonBuilder().startObject();
 			xb.field("Content", content).field("Created", created);
@@ -193,9 +200,7 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 					xb.field(key, metas.get(key).get(0));
 				}
 			}
-
 			///// Adding entities
-
 			if (namedEntity.size() > 0) {
 				xb.startArray("Entities");
 				for (NamedEntity ne : namedEntity) {
@@ -208,9 +213,9 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 				}
 				xb.endArray();
 
-				ResultSet entTypes = conn.createStatement().executeQuery("select distinct type from entity;");
-				while (entTypes.next()) {
-					String type = entTypes.getString("type").toLowerCase();				
+				
+				
+				for (String type:types){			
 					xb.startArray("Entities"+type);
 					for (NamedEntity ne : namedEntity) {
 						if (ne.type.toLowerCase().equals(type)) {
@@ -315,14 +320,17 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 				startObject("fields").startObject("raw").field("type", "date").field("format", "yyyy-MM-dd").endObject()
 				.endObject().endObject();
 
-
+		System.out.println("creating entities mapping ...");
 		createEntitesPerTypeMappings(mappingBuilder, "Entities");
+		System.out.println("creating entities mapping ... done");
 
 		ResultSet entTypes = conn.createStatement().executeQuery("select distinct type from entity;");
+		System.out.println("creating nested entities mapping ...");
 		while (entTypes.next()) {
 			String type = entTypes.getString("type").toLowerCase();
 			createEntitesPerTypeMappings(mappingBuilder, "Entities"+type);
 		}
+		System.out.println("creating nested entities mapping ... done");
 		/*createEntitesPerTypeMappings(mappingBuilder, "Entitiesloc");
 
 		createEntitesPerTypeMappings(mappingBuilder, "Entitiesmisc");
@@ -335,26 +343,26 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 
 		createEventTimeMappings(mappingBuilder);
 		createSimpleTimexMappings(mappingBuilder);
-
-		ResultSet docSt = conn.createStatement().executeQuery("select * from document;");
+		
 		Map<String, String> metaFields = new HashMap<>();
-		while (docSt.next()) {
-			Integer docId = docSt.getInt("id");
-			ResultSet metadataSt = conn.createStatement()
-					.executeQuery("select * from metadata where docid =" + docId + ";");
-			while (metadataSt.next()) {
-				String key = StringUtils.capitalize(metadataSt.getString("key").replace(".", "_"));
-				String type = metadataSt.getString("type");
-				if (type.toLowerCase().equals("date")) {
-					type = "date";
-				} else if (type.toLowerCase().equals("number") || type.toLowerCase().startsWith("int")) {
-					type = "long";
-				} else {
-					type = "string";
-				}
-				metaFields.put(key, type);
+		System.out.println("creating metadata mapping ...");
+
+		ResultSet metadataSt = conn.createStatement().executeQuery(
+				"select key, value, type from metadata  group by key, value, type;");
+		while (metadataSt.next()) {
+			String key = StringUtils.capitalize(metadataSt.getString("key").replace(".", "_"));
+			String type = metadataSt.getString("type");
+			if (type.toLowerCase().equals("date")) {
+				type = "date";
+			} else if (type.toLowerCase().equals("number") || type.toLowerCase().startsWith("int")) {
+				type = "long";
+			} else {
+				type = "string";
 			}
+			metaFields.put(key, type);
 		}
+
+		System.out.println("creating metadata mapping ... done");
 
 		for (String meta : metaFields.keySet()) {
 			createMetadataMappings(mappingBuilder, meta, metaFields.get(meta));
