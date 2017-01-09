@@ -138,8 +138,13 @@ public class PSQL2ESBulkIndexingWithSimpleTimex {
 
  			ResultSet docEntSt = conn.createStatement()
  					.executeQuery("select entid from entityoffset where  docid = " + docId + ";");
+ 			Set<Long> ids = new HashSet<>();
  			while (docEntSt.next()) {
  				long entId = docEntSt.getLong("entid");
+ 				if(ids.contains(entId)){
+ 					continue;
+ 				}
+ 				ids.add(entId);
  				ResultSet entSt = conn.createStatement()
  						.executeQuery("select * from entity where  id = " + entId + ";");
  				if (entSt.next()) {
